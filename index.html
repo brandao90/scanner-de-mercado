@@ -1,0 +1,3585 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Fotografe a etiqueta da prateleira, a app lê o preço e soma o total da compra. Grátis, sem conta.">
+<meta name="theme-color" content="#0d6b5b">
+<meta name="apple-mobile-web-app-title" content="Scanner de Mercado">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d6b5b'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%23ffd943' font-family='Arial,sans-serif' font-weight='700'%3E%E2%82%AC%3C/text%3E%3C/svg%3E">
+<title>Scanner de Mercado</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* Layout: a till receipt on a phone. Sticky header with tabs, receipt-style lines on paper, and a shelf-tag yellow total pinned to the bottom with the camera button under the thumb. */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --surface-2: #f3f6f4;
+  --paper: #fffef8;
+  --ink: #15201c;
+  --muted: #56635d;
+  --line: #dfe5e1;
+  --line-strong: #c3cdc8;
+  --accent: #0d6b5b;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe9;
+  --tag: #ffd943;
+  --tag-ink: #221b00;
+  --tag-deep: #c99a00;
+  --tag-soft: #fff4c7;
+  --warn: #b23b07;
+  --ok: #1a7a3d;
+  --focus: #0d6b5b;
+  --scrim: rgba(12, 20, 17, .45);
+  --shadow-c: rgba(16, 32, 28, .12);
+  --shadow: 0 1px 2px rgba(16, 32, 28, .06), 0 6px 18px rgba(16, 32, 28, .07);
+  --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1412;
+    --surface: #161e1b;
+    --surface-2: #1d2723;
+    --paper: #1a2320;
+    --ink: #e5ece8;
+    --muted: #9aa8a2;
+    --line: #2a3632;
+    --line-strong: #3a4843;
+    --accent: #4cc3ab;
+    --accent-ink: #052019;
+    --accent-soft: #163a33;
+    --tag: #f2cb3d;
+    --tag-ink: #221b00;
+    --tag-deep: #e0b52c;
+    --tag-soft: #3a3214;
+    --warn: #ff9b6a;
+    --ok: #63d38e;
+    --focus: #4cc3ab;
+    --scrim: rgba(0, 0, 0, .6);
+    --shadow-c: rgba(0, 0, 0, .45);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1412;
+  --surface: #161e1b;
+  --surface-2: #1d2723;
+  --paper: #1a2320;
+  --ink: #e5ece8;
+  --muted: #9aa8a2;
+  --line: #2a3632;
+  --line-strong: #3a4843;
+  --accent: #4cc3ab;
+  --accent-ink: #052019;
+  --accent-soft: #163a33;
+  --tag: #f2cb3d;
+  --tag-ink: #221b00;
+  --tag-deep: #e0b52c;
+  --tag-soft: #3a3214;
+  --warn: #ff9b6a;
+  --ok: #63d38e;
+  --focus: #4cc3ab;
+  --scrim: rgba(0, 0, 0, .6);
+  --shadow-c: rgba(0, 0, 0, .45);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--surface);
+}
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.vh {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.wrap {
+  max-width: 560px;
+  margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Header */
+.top {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 6;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px 2px; }
+.brand-name { margin: 0; font-size: 1.2rem; font-weight: 800; font-stretch: 80%; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-name span { color: var(--accent); }
+.sync {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  min-width: 0;
+  font-size: .78rem;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.sync::before { content: ""; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--line-strong); }
+.sync[data-state="cloud"]::before { background: var(--ok); }
+.sync[data-state="pending"]::before, .sync[data-state="none"]::before { background: var(--warn); }
+.tabs { display: flex; gap: 0; }
+.tabs button {
+  flex: 1 1 auto;
+  appearance: none;
+  border: 0;
+  background: none;
+  min-height: 46px;
+  padding: 8px 2px 10px;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 3px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.count {
+  font-family: var(--font-num);
+  font-size: .7rem;
+  font-weight: 600;
+  min-width: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+/* Main */
+main.wrap { padding-block: 16px calc(var(--bar-h, 0px) + 28px); }
+.view { display: grid; gap: 14px; }
+.muted { color: var(--muted); }
+.fine { margin: 0; font-size: .8rem; color: var(--muted); }
+.linklike {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 8px 2px;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: .92rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  justify-self: start;
+  text-align: left;
+}
+.linklike.danger { color: var(--warn); }
+
+/* Buttons */
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  font-weight: 700;
+  font-stretch: 92%;
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.btn svg { width: 22px; height: 22px; flex: none; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn.danger-ghost { background: transparent; color: var(--warn); }
+.btn.big { min-height: 54px; font-size: 1.02rem; }
+.btn:active { transform: translateY(1px); }
+
+/* Inputs */
+.field { display: grid; gap: 5px; min-width: 0; }
+.lbl { font-size: .85rem; font-weight: 700; color: var(--muted); }
+.lbl .opt { font-weight: 400; }
+.text-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 1rem;
+}
+.money { display: flex; align-items: center; min-width: 0; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); }
+.money:focus-within { outline: 3px solid var(--focus); outline-offset: 1px; }
+.money input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-num);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.money input:focus-visible { outline: none; }
+.money span { padding: 0 12px; color: var(--muted); font-weight: 700; }
+.small-input {
+  width: 4.6em;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  font-family: var(--font-num);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Budget */
+.budget { display: grid; gap: 6px; }
+.budget-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.budget-label { font-size: .85rem; font-weight: 700; color: var(--muted); }
+.budget-label .num { color: var(--ink); }
+.budget-bar { height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.budget-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+.budget[data-state="near"] .budget-bar span { background: var(--tag-deep); }
+.budget[data-state="over"] .budget-bar span { background: var(--warn); }
+.budget-text { margin: 0; font-size: .88rem; font-weight: 600; }
+.budget[data-state="over"] .budget-text { color: var(--warn); }
+.inline-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+
+/* Receipt */
+.receipt { position: relative; background: var(--paper); border-radius: 12px 12px 0 0; padding: 4px 14px 18px; box-shadow: var(--shadow); margin-bottom: 12px; }
+.receipt::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  bottom: -10px;
+  height: 10px;
+  background:
+    linear-gradient(135deg, var(--paper) 50%, transparent 50%) 0 0 / 12px 10px repeat-x,
+    linear-gradient(225deg, var(--paper) 50%, transparent 50%) 0 0 / 12px 10px repeat-x;
+}
+.receipt-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-num);
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 0 8px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.lines { list-style: none; margin: 0; padding: 0; }
+.line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.line-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; appearance: none; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.thumb { width: 44px; height: 44px; flex: none; border-radius: 8px; object-fit: cover; background: var(--surface-2); border: 1px solid var(--line); }
+.thumb.ph { display: grid; place-items: center; font-weight: 800; font-stretch: 75%; font-size: 1.1rem; color: var(--muted); }
+.line-text { min-width: 0; display: grid; gap: 2px; }
+.line-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line-calc { font-size: .8rem; color: var(--muted); }
+.line-right { flex: none; display: grid; justify-items: end; gap: 4px; }
+.line-total { font-weight: 600; }
+.line-saved { font-size: .72rem; font-weight: 700; color: var(--ok); }
+.line-saved.card { color: var(--muted); }
+.line.static .line-text { flex: 1; }
+.badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--tag);
+  color: var(--tag-ink);
+  font-size: .68rem;
+  font-weight: 700;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.receipt-foot { display: grid; gap: 8px; padding-top: 12px; }
+.sum-row { display: flex; justify-content: space-between; align-items: baseline; border-top: 3px double var(--ink); padding-top: 8px; font-family: var(--font-num); font-weight: 600; font-size: 1.05rem; }
+.foot-extra { display: flex; justify-content: space-between; gap: 12px; margin: 0; font-size: .88rem; font-weight: 600; }
+.foot-extra.ok { color: var(--ok); }
+.foot-extra.card { color: var(--muted); }
+
+/* Stepper */
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); }
+.st-btn {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 40px; height: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.st-btn svg { width: 18px; height: 18px; }
+.st-btn:active { background: var(--accent-soft); }
+.st-val { min-width: 24px; text-align: center; font-weight: 600; }
+.stepper.big { width: 100%; justify-content: space-between; min-height: 54px; }
+.stepper.big .st-btn { width: 52px; height: 52px; font-size: 1.5rem; }
+.stepper.big input { width: 4ch; min-height: 0; border: 0; padding: 0; background: transparent; text-align: center; font-family: var(--font-num); font-size: 1.25rem; font-weight: 700; }
+
+/* Empty state + example */
+.empty { display: grid; gap: 6px; padding: 8px 0 4px; }
+.empty-title { margin: 0; font-weight: 800; font-size: 1.05rem; }
+.empty p { margin: 0; }
+.example { position: relative; margin-top: 16px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 12px 12px 8px; }
+.example-tag {
+  position: absolute;
+  top: -9px; left: 10px;
+  padding: 0 6px;
+  background: var(--paper);
+  font-family: var(--font-num);
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ex-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: .9rem; color: var(--muted); }
+.ex-line .ex-calc { grid-column: 1; font-size: .78rem; }
+.ex-line .ex-sum { grid-column: 2; grid-row: 1; }
+.ex-total { display: flex; justify-content: space-between; padding-top: 8px; font-family: var(--font-num); font-weight: 600; color: var(--muted); }
+
+/* Bottom bar */
+.bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 20px var(--shadow-c);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.bar .wrap { display: grid; gap: 8px; padding-block: 10px 8px; }
+.total-tag {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  column-gap: 12px;
+  background: var(--tag);
+  color: var(--tag-ink);
+  border-radius: 10px;
+  padding: 8px 14px 9px;
+}
+.total-label { grid-row: 1; grid-column: 1; font-family: var(--font-num); font-size: .7rem; font-weight: 600; letter-spacing: .16em; }
+.total-meta { grid-row: 2; grid-column: 1; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.total-amount {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  justify-self: end;
+  font-weight: 800;
+  font-stretch: 70%;
+  font-size: 2.35rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bar-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.bar .linklike { justify-self: center; padding: 2px 4px 4px; font-size: .84rem; }
+body[data-tab="lista"] .bar-actions,
+body[data-tab="lista"] #btn-gallery { display: none; }
+
+/* Sheets */
+dialog.sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  max-height: 92dvh;
+  padding: 0;
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+  color: var(--ink);
+  overflow: auto;
+  box-shadow: 0 -10px 40px var(--shadow-c);
+}
+dialog.sheet[open] { animation: sheet-up .2s ease-out; }
+dialog.sheet::backdrop { background: var(--scrim); }
+@keyframes sheet-up { from { transform: translateY(28px); opacity: .5; } to { transform: none; opacity: 1; } }
+.sheet form {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet-head h2 { margin: 0; font-size: 1.2rem; font-weight: 800; font-stretch: 85%; }
+.icon-btn {
+  appearance: none;
+  border: 0;
+  background: var(--surface-2);
+  width: 40px; height: 40px;
+  flex: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.photo-cta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.photo-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
+.photo-row img { width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: var(--surface-2); border: 1px solid var(--line); }
+.read-status { display: grid; gap: 2px; font-size: .92rem; }
+.read-status p { margin: 0; }
+.read-status[data-kind="ok"] p { color: var(--ok); font-weight: 600; }
+.read-status[data-kind="error"] p, .read-status[data-kind="off"] p { color: var(--warn); font-weight: 600; }
+.spin {
+  display: inline-block;
+  width: 15px; height: 15px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.seg button { appearance: none; border: 0; background: transparent; min-height: 42px; border-radius: 9px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px var(--shadow-c); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; }
+@media (max-width: 340px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  appearance: none;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip .num { font-weight: 700; }
+.chip small { color: var(--muted); font-size: .74rem; font-weight: 600; }
+.chip[aria-pressed="true"], .chip[aria-checked="true"] { background: var(--tag); color: var(--tag-ink); border-color: var(--tag-deep); }
+.chip[aria-pressed="true"] small { color: var(--tag-ink); }
+.note { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--tag-soft); font-size: .88rem; }
+.hist-note { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: .88rem; }
+.hist-note .warn { color: var(--warn); }
+.hist-note .ok { color: var(--ok); }
+.hist-note .hn-min { color: var(--muted); }
+.line-preview { display: flex; justify-content: space-between; align-items: baseline; padding-top: 10px; border-top: 1px dashed var(--line-strong); font-weight: 700; }
+.line-preview .num { font-size: 1.35rem; }
+.sub-note { margin: -8px 0 0; text-align: right; font-size: .85rem; font-weight: 700; color: var(--muted); }
+.sub-note.ok { color: var(--ok); }
+.promo { display: grid; gap: 10px; }
+.promo-fields { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.promo-fields .lbl { color: var(--ink); }
+.err { margin: 0; color: var(--warn); font-weight: 700; font-size: .9rem; }
+.sheet-actions { display: grid; gap: 8px; }
+.diff { margin: 0; font-weight: 700; }
+ol.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.url-input { font-family: var(--font-num); font-size: .82rem; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+legend { padding: 0; margin-bottom: 8px; }
+
+/* List */
+.list-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.list-tools { display: flex; align-items: center; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap; }
+.list-tools p { margin: 0; font-weight: 700; font-size: .9rem; }
+.copy-area { width: 100%; min-height: 130px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); font-family: var(--font-num); font-size: .85rem; }
+.checklist { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); }
+.li { display: flex; align-items: center; gap: 2px; padding: 2px 6px 2px 4px; border-bottom: 1px solid var(--line); }
+.li:last-child { border-bottom: 0; }
+.check { appearance: none; border: 0; background: none; width: 44px; height: 44px; flex: none; display: grid; place-items: center; cursor: pointer; }
+.check svg { width: 24px; height: 24px; }
+.check .box { fill: none; stroke: var(--line-strong); stroke-width: 2; }
+.check .tick { fill: none; stroke: var(--accent-ink); stroke-width: 2.5; opacity: 0; }
+.check[aria-checked="true"] .box { fill: var(--accent); stroke: var(--accent); }
+.check[aria-checked="true"] .tick { opacity: 1; }
+.li-name { flex: 1; min-width: 0; appearance: none; border: 0; background: none; padding: 9px 4px; text-align: left; display: grid; gap: 1px; cursor: pointer; }
+.li-name .li-title { font-weight: 700; overflow-wrap: anywhere; }
+.li-meta { font-size: .78rem; color: var(--accent); font-weight: 600; }
+.li.done .li-title { text-decoration: line-through; color: var(--muted); }
+.li.done .li-meta { color: var(--muted); }
+.li .icon-btn { background: none; width: 40px; height: 40px; }
+
+/* Price book */
+.prod { border-bottom: 1px solid var(--line); }
+.prod:last-child { border-bottom: 0; }
+.prod-head { width: 100%; appearance: none; border: 0; background: none; text-align: left; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; cursor: pointer; }
+.prod-name { font-weight: 700; overflow-wrap: anywhere; }
+.prod-price { font-weight: 700; justify-self: end; white-space: nowrap; }
+.prod-meta { font-size: .78rem; color: var(--muted); }
+.prod-trend { justify-self: end; font-family: var(--font-num); font-size: .78rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.prod-trend.warn { color: var(--warn); }
+.prod-trend.ok { color: var(--ok); }
+.prod-body { display: grid; gap: 10px; padding: 0 12px 12px; }
+.pe-list { list-style: none; margin: 0; padding: 0; }
+.pe { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: .86rem; }
+.prod-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+
+/* History */
+.spend { display: grid; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.spend-big { display: block; font-size: 1.9rem; font-weight: 600; line-height: 1.1; }
+.months { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.months li { display: grid; grid-template-columns: 3.4em minmax(0, 1fr) 6.8em; align-items: center; gap: 8px; font-size: .8rem; }
+.m-lbl { color: var(--muted); }
+.m-bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.m-bar i { display: block; height: 100%; border-radius: 999px; background: var(--line-strong); }
+.months li.now .m-lbl { color: var(--ink); font-weight: 700; }
+.months li.now .m-bar i { background: var(--accent); }
+.m-val { text-align: right; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { min-width: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.stat b { display: block; font-family: var(--font-num); font-size: 1.12rem; font-variant-numeric: tabular-nums; }
+.stat span { display: block; font-size: .74rem; line-height: 1.25; color: var(--muted); }
+@media (max-width: 360px) {
+  .stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .stat:last-child { grid-column: span 2; }
+}
+.trips { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.trip { background: var(--paper); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.trip-head { width: 100%; appearance: none; border: 0; background: none; padding: 12px 14px; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; cursor: pointer; }
+.trip-when { font-weight: 800; }
+.trip-total { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-weight: 700; font-size: 1.05rem; }
+.trip-meta { font-size: .8rem; color: var(--muted); }
+.trip-meta .ok { color: var(--ok); font-weight: 700; }
+.trip-meta .warn { color: var(--warn); font-weight: 700; }
+.trip-body { display: grid; gap: 8px; padding: 0 14px 10px; border-top: 1px dashed var(--line-strong); }
+.trip-actions { display: flex; flex-wrap: wrap; gap: 0 18px; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: auto;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(max(var(--bar-h, 0px), env(safe-area-inset-bottom, 0px)) + 12px);
+  z-index: 20;
+  width: max-content;
+  height: auto;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  border: 0;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: var(--shadow);
+  font-size: .92rem;
+}
+/* As a popover the toast shows above open sheets too; closed, it must stay hidden. */
+.toast[popover]:not(:popover-open) { display: none; }
+.toast button { appearance: none; border: 0; background: none; padding: 6px 2px; color: var(--tag); font-weight: 800; cursor: pointer; white-space: nowrap; }
+.photo-row img:not([src]) { color: transparent; font-size: 0; }
+.discard { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--tag-soft); border: 1px solid var(--tag-deep); }
+.discard p { margin: 0; font-weight: 700; }
+.discard-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open] { animation: none; }
+  .spin { animation: none; }
+  .budget-bar span { transition: none; }
+}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1 class="brand-name">Scanner <span>de Mercado</span></h1>
+      <button type="button" class="sync" id="sync" data-state="local">Só neste aparelho</button>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Secções">
+      <button type="button" role="tab" id="tab-carrinho" aria-controls="view-carrinho" aria-selected="true">Carrinho <span class="count" id="cnt-cart">0</span></button>
+      <button type="button" role="tab" id="tab-lista" aria-controls="view-lista" aria-selected="false">Lista <span class="count" id="cnt-list">0</span></button>
+      <button type="button" role="tab" id="tab-precos" aria-controls="view-precos" aria-selected="false">Preços</button>
+      <button type="button" role="tab" id="tab-historico" aria-controls="view-historico" aria-selected="false">Histórico</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="view" id="view-carrinho" role="tabpanel" aria-labelledby="tab-carrinho">
+    <div class="budget" id="budget" data-state="none">
+      <div class="budget-row">
+        <span class="budget-label" id="budget-label">Sem orçamento</span>
+        <button type="button" class="linklike" id="budget-edit">Definir orçamento</button>
+      </div>
+      <form class="inline-form" id="budget-form" hidden novalidate>
+        <div class="money">
+          <label class="vh" for="f-budget">Orçamento em euros</label>
+          <input id="f-budget" type="text" inputmode="decimal" autocomplete="off" placeholder="50,00">
+          <span>€</span>
+        </div>
+        <button type="submit" class="btn primary">OK</button>
+        <button type="button" class="btn ghost" id="budget-clear">Tirar</button>
+      </form>
+      <div class="budget-bar" id="budget-bar" hidden><span id="budget-fill"></span></div>
+      <p class="budget-text" id="budget-text" hidden></p>
+    </div>
+
+    <div class="receipt">
+      <div class="receipt-head" id="receipt-head"><span>Artigo</span><span>Valor</span></div>
+      <ul class="lines" id="cart-list"></ul>
+      <div class="empty" id="cart-empty">
+        <p class="empty-title">O carrinho está vazio.</p>
+        <p class="muted">Fotografe a etiqueta da prateleira. A app lê o preço, você escolhe a quantidade e o total vai somando.</p>
+        <div class="example" aria-label="Exemplo de carrinho">
+          <span class="example-tag">Exemplo</span>
+          <div class="ex-line"><span>Atum em óleo</span><span class="ex-sum num">2,38 €</span><span class="ex-calc num">Leve 3 pague 2 · 3 × 1,19 €</span></div>
+          <div class="ex-line"><span>Bananas</span><span class="ex-sum num">1,10 €</span><span class="ex-calc num">0,850 kg × 1,29 €/kg</span></div>
+          <div class="ex-line"><span>Leite meio-gordo</span><span class="ex-sum num">5,34 €</span><span class="ex-calc num">6 × 0,89 €</span></div>
+          <div class="ex-total"><span>Total</span><span>8,82 €</span></div>
+        </div>
+      </div>
+      <div class="receipt-foot" id="cart-foot" hidden>
+        <div class="sum-row"><span>TOTAL</span><span id="foot-total">0,00 €</span></div>
+        <p class="foot-extra ok" id="foot-saved" hidden></p>
+        <p class="foot-extra card" id="foot-card" hidden></p>
+        <p class="fine">É uma estimativa. Confirme no talão.</p>
+        <button type="button" class="btn ghost" id="btn-finish">Terminar compra</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-lista" role="tabpanel" aria-labelledby="tab-lista" hidden>
+    <form class="list-add" id="list-form" novalidate>
+      <label class="vh" for="f-listitem">Produto para a lista</label>
+      <input class="text-input" id="f-listitem" type="text" autocomplete="off" maxlength="300" placeholder="O que precisa comprar?" list="book-names">
+      <button type="submit" class="btn primary">Adicionar</button>
+    </form>
+    <datalist id="book-names"></datalist>
+    <p class="fine">Escreva vários de uma vez com vírgulas: arroz, leite, atum. No supermercado, toque num item para o pôr no carrinho.</p>
+    <div class="list-tools" id="list-tools" hidden>
+      <p id="list-est"></p>
+      <button type="button" class="linklike" id="list-copy">Copiar lista</button>
+    </div>
+    <label class="vh" for="copy-area">Texto da lista</label>
+    <textarea class="copy-area" id="copy-area" readonly hidden></textarea>
+    <ul class="checklist" id="list-items"></ul>
+    <div class="empty" id="list-empty">
+      <p class="empty-title">A lista está vazia.</p>
+      <p class="muted">Faça a lista em casa. Os itens ficam aqui até os comprar, com o preço da última vez quando já os comprou.</p>
+    </div>
+    <button type="button" class="linklike" id="list-clear" hidden>Apagar itens riscados</button>
+  </section>
+
+  <section class="view" id="view-precos" role="tabpanel" aria-labelledby="tab-precos" hidden>
+    <div class="field" id="search-box">
+      <label class="vh" for="f-search">Procurar produto</label>
+      <input class="text-input" id="f-search" type="search" autocomplete="off" placeholder="Procurar produto">
+    </div>
+    <p class="fine" id="book-count"></p>
+    <ul class="checklist" id="book-list"></ul>
+    <div class="empty" id="book-empty">
+      <p class="empty-title">Ainda não há preços guardados.</p>
+      <p class="muted">Cada compra que terminar fica aqui: o último preço, onde comprou e o mais barato que já viu. Ao fotografar o mesmo produto, a app avisa se subiu.</p>
+    </div>
+  </section>
+
+  <section class="view" id="view-historico" role="tabpanel" aria-labelledby="tab-historico" hidden>
+    <div class="spend" id="spend" hidden>
+      <div>
+        <span class="lbl">Gasto este mês</span>
+        <b class="spend-big num" id="spend-month">0,00 €</b>
+        <p class="fine" id="spend-sub"></p>
+      </div>
+      <ul class="months" id="months" aria-label="Gasto nos últimos 6 meses"></ul>
+    </div>
+    <div class="stats" aria-label="Como a app está a correr">
+      <div class="stat"><b id="stat-trips">0</b><span>compras guardadas</span></div>
+      <div class="stat"><b id="stat-reads">—</b><span>leituras certas à primeira</span></div>
+      <div class="stat"><b id="stat-diff">—</b><span>diferença média para o talão</span></div>
+    </div>
+    <ul class="trips" id="trips"></ul>
+    <div class="empty" id="trips-empty">
+      <p class="empty-title">Ainda não há compras guardadas.</p>
+      <p class="muted">Quando terminar uma compra, ela aparece aqui com o total, a comparação com o talão e o que poupou.</p>
+    </div>
+    <button type="button" class="linklike" id="btn-export" hidden>Exportar histórico para Excel (CSV)</button>
+    <p class="fine" id="trips-note" hidden>As fotos apagam-se ao fim de 7 dias. Os valores e os preços ficam.</p>
+    <p class="fine" id="archive-note" hidden></p>
+  </section>
+</main>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <div class="total-tag" aria-live="polite">
+      <span class="total-label">TOTAL</span>
+      <span class="total-meta" id="total-meta">0 artigos</span>
+      <span class="total-amount" id="total">0,00 €</span>
+    </div>
+    <div class="bar-actions">
+      <button type="button" class="btn primary big" id="btn-photo">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        Fotografar etiqueta
+      </button>
+      <button type="button" class="btn secondary big" id="btn-manual" aria-label="Escrever o preço à mão">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>
+        Escrever
+      </button>
+    </div>
+    <button type="button" class="linklike" id="btn-gallery">ou escolher uma foto da galeria</button>
+  </div>
+</div>
+<input class="vh" id="in-camera" type="file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+<input class="vh" id="in-gallery" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+  <form id="item-form" novalidate>
+    <div class="sheet-head">
+      <h2 id="sheet-title">Novo produto</h2>
+      <button type="button" class="icon-btn" id="sheet-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="discard" id="discard" role="alert" hidden>
+      <p>Fechar sem guardar? A foto e o que escreveu perdem-se.</p>
+      <div class="discard-actions">
+        <button type="button" class="btn secondary" id="discard-keep">Continuar</button>
+        <button type="button" class="btn danger-ghost" id="discard-yes">Descartar</button>
+      </div>
+    </div>
+    <div class="photo-cta" id="photo-cta">
+      <button type="button" class="btn secondary" id="sheet-photo">Fotografar etiqueta</button>
+      <button type="button" class="btn ghost" id="sheet-gallery">Da galeria</button>
+    </div>
+    <input class="vh" id="in-camera-s" type="file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+    <input class="vh" id="in-gallery-s" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+    <div class="photo-row" id="photo-row" hidden>
+      <img id="photo-img" alt="Foto da etiqueta">
+      <div class="read-status" id="read-status" role="status" aria-live="polite" hidden></div>
+    </div>
+    <div class="chips" id="chips" hidden></div>
+    <p class="note" id="ref-note" hidden></p>
+    <p class="note" id="promo-note" hidden></p>
+    <p class="hist-note" id="hist-note" aria-live="polite" hidden></p>
+    <div class="seg" role="radiogroup" aria-label="Como é vendido">
+      <button type="button" role="radio" id="mode-un" aria-checked="true">Por unidade</button>
+      <button type="button" role="radio" id="mode-kg" aria-checked="false">Ao peso</button>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label class="lbl" for="f-price" id="lbl-price">Preço por unidade</label>
+        <div class="money"><input id="f-price" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"><span>€</span></div>
+      </div>
+      <div class="field" id="qty-box">
+        <label class="lbl" for="f-qty">Quantidade</label>
+        <div class="stepper big">
+          <button type="button" class="st-btn" id="q-minus" aria-label="Menos um">−</button>
+          <input id="f-qty" type="text" inputmode="numeric" autocomplete="off" value="1">
+          <button type="button" class="st-btn" id="q-plus" aria-label="Mais um">+</button>
+        </div>
+      </div>
+      <div class="field" id="kg-box" hidden>
+        <label class="lbl" for="f-kg">Peso</label>
+        <div class="money"><input id="f-kg" type="text" inputmode="decimal" autocomplete="off" placeholder="0,500"><span>kg</span></div>
+      </div>
+    </div>
+    <div class="line-preview"><span>Subtotal</span><span class="num" id="f-sub">—</span></div>
+    <p class="sub-note" id="f-sub-note" hidden></p>
+    <div class="promo" id="promo-box">
+      <button type="button" class="linklike" id="promo-toggle" aria-expanded="false" aria-controls="promo-panel">+ Promoção</button>
+      <div class="promo" id="promo-panel" hidden>
+        <div class="chips" id="promo-kinds" role="radiogroup" aria-label="Tipo de promoção">
+          <button type="button" class="chip" role="radio" data-kind="" aria-checked="true">Nenhuma</button>
+          <button type="button" class="chip" role="radio" data-kind="leve" aria-checked="false">Leve X pague Y</button>
+          <button type="button" class="chip" role="radio" data-kind="segunda" aria-checked="false">2.ª unidade</button>
+          <button type="button" class="chip" role="radio" data-kind="pct" aria-checked="false">Desconto %</button>
+          <button type="button" class="chip" role="radio" data-kind="cartao" aria-checked="false">No cartão %</button>
+        </div>
+        <div class="promo-fields" id="pf-leve" hidden>
+          <label class="lbl" for="f-px">Leve</label>
+          <input class="small-input" id="f-px" type="text" inputmode="numeric" autocomplete="off" value="3">
+          <label class="lbl" for="f-py">pague</label>
+          <input class="small-input" id="f-py" type="text" inputmode="numeric" autocomplete="off" value="2">
+        </div>
+        <div class="promo-fields" id="pf-pct" hidden>
+          <label class="lbl" for="f-ppct" id="lbl-ppct">Desconto</label>
+          <input class="small-input" id="f-ppct" type="text" inputmode="decimal" autocomplete="off" value="50">
+          <span class="lbl">%</span>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl" for="f-name">Nome do produto <span class="opt">(opcional, serve para comparar preços)</span></label>
+      <input class="text-input" id="f-name" type="text" autocomplete="off" maxlength="60" list="list-names" placeholder="Ex.: Atum em óleo">
+      <datalist id="list-names"></datalist>
+    </div>
+    <p class="err" id="f-err" role="alert" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn primary big" id="f-save">Adicionar ao carrinho</button>
+      <button type="submit" class="btn secondary" id="f-save-next">Adicionar e fotografar outro</button>
+      <button type="button" class="btn danger-ghost" id="f-remove" hidden>Remover do carrinho</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="sheet" id="finish" aria-labelledby="finish-title">
+  <form id="finish-form" novalidate>
+    <div class="sheet-head">
+      <h2 id="finish-title">Terminar compra</h2>
+      <button type="button" class="icon-btn" id="fin-close" aria-label="Fechar">×</button>
+    </div>
+    <p class="muted" style="margin:0">Total da app: <strong class="num" id="fin-total">0,00 €</strong> · <span id="fin-count">0 artigos</span></p>
+    <fieldset>
+      <legend class="lbl">Onde comprou? <span class="opt">(opcional)</span></legend>
+      <div class="chips" id="store-chips"></div>
+      <label class="vh" for="fin-other">Nome do supermercado</label>
+      <input class="text-input" id="fin-other" type="text" autocomplete="off" maxlength="40" placeholder="Nome do supermercado" hidden>
+    </fieldset>
+    <div class="field">
+      <label class="lbl" for="fin-receipt">Valor do talão <span class="opt">(opcional, pode escrever depois)</span></label>
+      <div class="money"><input id="fin-receipt" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"><span>€</span></div>
+    </div>
+    <p class="diff" id="fin-diff" hidden></p>
+    <p class="fine">O carrinho vai para o histórico e os preços ficam guardados. Os itens riscados saem da lista; os que faltam ficam para a próxima compra.</p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn primary big">Guardar compra</button>
+      <button type="button" class="btn ghost" id="fin-cancel">Continuar a comprar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="sheet" id="nocam" aria-labelledby="nocam-title">
+  <form id="nocam-form" novalidate>
+    <div class="sheet-head">
+      <h2 id="nocam-title">A câmara não abriu</h2>
+      <button type="button" class="icon-btn" id="nocam-close" aria-label="Fechar">×</button>
+    </div>
+    <p class="muted" style="margin:0">Dentro da app do Claude para Android, esta página não consegue abrir a câmara. No <span class="nc-browser">Chrome</span> funciona<span id="nc-sync">, e as compras guardadas aparecem lá também</span>.</p>
+    <ol class="steps">
+      <li>Toque em <strong>Copiar link</strong>.</li>
+      <li>Abra o <strong class="nc-browser">Chrome</strong> e cole o link na barra de endereço.</li>
+      <li>Entre na sua conta Claude, se pedir.</li>
+      <li id="nc-icon">Para ter um ícone: no Chrome, menu <strong>⋮</strong> → <strong>Adicionar ao ecrã principal</strong>.</li>
+    </ol>
+    <label class="vh" for="nocam-url">Link da app</label>
+    <input class="text-input url-input" id="nocam-url" type="text" readonly value="">
+    <p class="fine" id="nocam-note" hidden>O link ficou selecionado. Toque nele sem largar e escolha Copiar.</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn primary big" id="nocam-copy">Copiar link</button>
+      <button type="button" class="btn secondary" id="nocam-manual">Escrever o preço à mão</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" id="toast-undo" hidden>Desfazer</button></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const LS_KEY = 'scanner-mercado:v1';
+  const LS_TAB = 'scanner-mercado:tab';
+  const LS_NOCAM = 'scanner-mercado:nocam';
+  const IN_CLAUDE = !!(window.claude && typeof window.claude.use === 'function');
+  const APP_URL = location.href.split('#')[0]; // no site: o endereço do próprio site
+  const PHOTO_DAYS = 7;
+  const MAX_TRIPS = 120; // full purchases kept; older ones are summarised in the archive
+  const MAX_LIST = 300;
+  const MAX_MONEY = 9999999; // 99 999,99 €: budgets, receipts
+  const MAX_PRICE = 999999; // 9 999,99 €: one product
+  document.documentElement.lang = 'pt-PT';
+  const STORES = ['Pingo Doce', 'Continente', 'Lidl', 'Aldi', 'Intermarché', 'Mercadona', 'Auchan', 'Minipreço'];
+  const TABS = ['carrinho', 'lista', 'precos', 'historico'];
+  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  const moneyFmt = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+  const eur = (c) => moneyFmt.format((c || 0) / 100);
+  const kgFmt = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const kgText = (g) => kgFmt.format((g || 0) / 1000) + ' kg';
+  const dateFmt = new Intl.DateTimeFormat('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+  const timeFmt = new Intl.DateTimeFormat('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const isInt = Number.isInteger;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  // Invisible control and text-direction characters: they can garble a name on screen or in the exported file.
+  const BAD_CHARS = /[\u0000-\u001f\u007f-\u009f\u061c\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\uFEFF]/g;
+  const cleanText = (s, max) => (typeof s === 'string' ? s.replace(BAD_CHARS, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
+  const okId = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v);
+  const THUMB_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const money = (v, max) => isInt(v) && v >= 0 && v <= max;
+  const tokens = (s) => fold(s).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((w) => w.length > 1);
+  const plural = (n, one, many) => (n === 1 ? '1 ' + one : n + ' ' + many);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const initial = (name) => (fold(name).charAt(0) || '·').toUpperCase();
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmtPct = (p) => String(p).replace('.', ',') + '%';
+  function shortDate(ts) {
+    const d = new Date(ts);
+    return d.getDate() + ' ' + MONTHS[d.getMonth()] + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+  }
+
+  function h(tag, props, ...kids) {
+    const el = document.createElement(tag);
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (v == null || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'text') el.textContent = v;
+        else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : String(v));
+      }
+    }
+    for (const c of kids.flat()) if (c != null && c !== false) el.append(c);
+    return el;
+  }
+  const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>';
+  const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect class="box" x="3" y="3" width="18" height="18" rx="5"/><path class="tick" d="M7.5 12.5l3 3 6-7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function svg(markup) {
+    const t = document.createElement('template');
+    t.innerHTML = markup;
+    return t.content.firstElementChild;
+  }
+
+  /* ---------- Numbers: everything in whole cents and grams ---------- */
+  // thousands: for money, "1.000" is one thousand euros, as written in Portugal. For a weight it stays 1 kg.
+  function normNum(str, thousands) {
+    if (str == null) return null;
+    let s = String(str).replace(/[\s€]|eur|kg/gi, '');
+    if (!s) return null;
+    if (thousands && /^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) return s.replace(/\./g, '');
+    const lc = s.lastIndexOf(',');
+    const ld = s.lastIndexOf('.');
+    if (lc > -1 && ld > -1) {
+      s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    } else if (lc > -1) {
+      const parts = s.split(',');
+      s = parts.length > 2 ? parts.slice(0, -1).join('') + '.' + parts[parts.length - 1] : s.replace(',', '.');
+    } else if (ld > -1) {
+      const parts = s.split('.');
+      if (parts.length > 2) s = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    }
+    if (!/^(\d+(\.\d*)?|\.\d+)$/.test(s)) return null;
+    return s;
+  }
+  function toUnits(str, digits, thousands) {
+    const s = normNum(str, thousands);
+    if (s == null) return null;
+    const [ip, fp = ''] = s.split('.');
+    const f = (fp + '0000').slice(0, digits + 1);
+    let v = parseInt(ip || '0', 10) * Math.pow(10, digits) + parseInt(f.slice(0, digits), 10);
+    if (parseInt(f.charAt(digits), 10) >= 5) v += 1;
+    return Number.isFinite(v) ? v : null;
+  }
+  const parseCents = (s) => toUnits(s, 2, true);
+  const parseGrams = (s) => toUnits(s, 3, false);
+  const parsePct = (s) => { const n = normNum(s); return n == null ? null : Math.round(parseFloat(n) * 10) / 10; };
+  const centsToInput = (c) => (c == null ? '' : (c / 100).toFixed(2).replace('.', ','));
+  const gramsToInput = (g) => (g == null ? '' : (g / 1000).toFixed(3).replace('.', ','));
+
+  function grossCents(it) { return it.mode === 'kg' ? Math.round(it.priceCents * it.weightG / 1000) : it.priceCents * it.qty; }
+  function promoCalc(it) {
+    const g = grossCents(it);
+    const t = it.promoType;
+    if (t === 'leve' && it.mode === 'un' && it.promoX > it.promoY && it.promoY >= 1) {
+      const paid = Math.floor(it.qty / it.promoX) * it.promoY + (it.qty % it.promoX);
+      const pay = paid * it.priceCents;
+      return { pay, saved: g - pay, card: 0 };
+    }
+    if (t === 'segunda' && it.mode === 'un' && it.promoPct > 0 && it.promoPct <= 100) {
+      const off = Math.floor(it.qty / 2) * Math.round(it.priceCents * it.promoPct / 100);
+      return { pay: g - off, saved: off, card: 0 };
+    }
+    if (t === 'pct' && it.promoPct > 0 && it.promoPct < 100) {
+      const off = Math.round(g * it.promoPct / 100);
+      return { pay: g - off, saved: off, card: 0 };
+    }
+    if (t === 'cartao' && it.promoPct > 0 && it.promoPct <= 100) {
+      return { pay: g, saved: 0, card: Math.round(g * it.promoPct / 100) };
+    }
+    return { pay: g, saved: 0, card: 0 };
+  }
+  function lineCents(it) { return promoCalc(it).pay; }
+  function sums(items) {
+    let pay = 0;
+    let saved = 0;
+    let card = 0;
+    for (const it of items) { const c = promoCalc(it); pay += c.pay; saved += c.saved; card += c.card; }
+    return { pay, saved, card };
+  }
+  function totalOf(items) { return sums(items).pay; }
+  function unitsOf(items) { return items.reduce((s, it) => s + (it.mode === 'kg' ? 1 : it.qty), 0); }
+  function calcText(it) { return it.mode === 'kg' ? kgText(it.weightG) + ' × ' + eur(it.priceCents) + '/kg' : it.qty + ' × ' + eur(it.priceCents); }
+  function promoBadge(it) {
+    if (it.promoType === 'leve') return 'Leve ' + it.promoX + ' pague ' + it.promoY;
+    if (it.promoType === 'segunda') return '2.ª −' + fmtPct(it.promoPct);
+    if (it.promoType === 'pct') return '−' + fmtPct(it.promoPct);
+    if (it.promoType === 'cartao') return 'cartão ' + fmtPct(it.promoPct);
+    return it.promo ? 'promo' : null;
+  }
+
+  /* ---------- State ---------- */
+  const state = {
+    updatedAt: 0, cart: [], list: [], trips: [], budgetCents: null, cartStartedAt: null, lastStore: '',
+    archive: { trips: [], prices: [] }, synced: false, acct: '', shadow: null,
+  };
+
+  function cleanItem(o) {
+    if (!o || typeof o !== 'object' || !money(o.priceCents, MAX_MONEY)) return null;
+    const it = {
+      id: okId(o.id) ? o.id : uid(),
+      name: cleanText(o.name, 60),
+      mode: o.mode === 'kg' ? 'kg' : 'un',
+      priceCents: o.priceCents,
+      qty: isInt(o.qty) && o.qty > 0 ? Math.min(o.qty, 999) : 1,
+      weightG: isInt(o.weightG) && o.weightG > 0 ? Math.min(o.weightG, 100000) : 1000,
+      thumb: typeof o.thumb === 'string' && o.thumb.length < 80000 && THUMB_RE.test(o.thumb) ? o.thumb : null,
+      aiCents: money(o.aiCents, MAX_MONEY) ? o.aiCents : null,
+      aiMode: o.aiMode === 'kg' ? 'kg' : 'un',
+      aiAlt: Array.isArray(o.aiAlt) ? o.aiAlt.filter((c) => money(c, MAX_MONEY)).slice(0, 6) : [],
+      src: ['ia', 'ia-alt', 'mao', 'manual'].includes(o.src) ? o.src : 'manual',
+      promo: cleanText(o.promo, 80) || null,
+      promoType: ['leve', 'segunda', 'pct', 'cartao'].includes(o.promoType) ? o.promoType : null,
+      promoX: isInt(o.promoX) && o.promoX >= 2 && o.promoX <= 20 ? o.promoX : null,
+      promoY: isInt(o.promoY) && o.promoY >= 1 && o.promoY <= 19 ? o.promoY : null,
+      promoPct: typeof o.promoPct === 'number' && o.promoPct > 0 && o.promoPct <= 100 ? Math.round(o.promoPct * 10) / 10 : null,
+      listId: okId(o.listId) ? o.listId : null,
+      addedAt: Number.isFinite(o.addedAt) ? o.addedAt : 0,
+    };
+    if (it.promoType === 'leve' && !(it.promoX && it.promoY && it.promoX > it.promoY)) it.promoType = null;
+    if (['segunda', 'pct', 'cartao'].includes(it.promoType) && it.promoPct == null) it.promoType = null;
+    if (it.promoType === 'pct' && it.promoPct >= 100) it.promoType = null;
+    return it;
+  }
+  function cleanListItem(o) {
+    const name = o && typeof o === 'object' ? cleanText(o.name, 60) : '';
+    if (!name) return null;
+    return {
+      id: okId(o.id) ? o.id : uid(),
+      name,
+      done: o.done === true,
+      cartItemId: okId(o.cartItemId) ? o.cartItemId : null,
+    };
+  }
+  function cleanTrip(o) {
+    if (!o || typeof o !== 'object' || !Number.isFinite(o.ts)) return null;
+    const items = Array.isArray(o.items) ? o.items.slice(0, 500).map(cleanItem).filter(Boolean) : [];
+    const s = sums(items);
+    return {
+      id: okId(o.id) ? o.id : uid(),
+      ts: o.ts,
+      store: cleanText(o.store, 40),
+      totalCents: money(o.totalCents, MAX_MONEY * 10) ? o.totalCents : s.pay,
+      savedCents: money(o.savedCents, MAX_MONEY * 10) ? o.savedCents : s.saved,
+      cardCents: money(o.cardCents, MAX_MONEY * 10) ? o.cardCents : s.card,
+      receiptCents: money(o.receiptCents, MAX_MONEY) ? o.receiptCents : null,
+      durationMin: isInt(o.durationMin) && o.durationMin > 0 && o.durationMin < 1440 ? o.durationMin : null,
+      items,
+      photosPurged: o.photosPurged === true,
+    };
+  }
+  // Keeps the first copy of each id: a damaged save must not show the same thing twice.
+  function uniqueById(arr) {
+    const seen = new Set();
+    return arr.filter((x) => x && !seen.has(x.id) && seen.add(x.id));
+  }
+  const byAdded = (a, b) => a.addedAt - b.addedAt;
+  const byNewest = (a, b) => b.ts - a.ts || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  function applyData(d) {
+    d = d && typeof d === 'object' ? d : {};
+    state.updatedAt = Number.isFinite(d.updatedAt) ? d.updatedAt : 0;
+    state.cart = uniqueById((Array.isArray(d.cart) ? d.cart : []).map(cleanItem)).sort(byAdded);
+    state.list = uniqueById((Array.isArray(d.list) ? d.list : []).map(cleanListItem)).slice(0, MAX_LIST);
+    state.trips = uniqueById((Array.isArray(d.trips) ? d.trips : []).map(cleanTrip)).sort(byNewest);
+    state.budgetCents = isInt(d.budgetCents) && d.budgetCents > 0 && d.budgetCents <= MAX_MONEY ? d.budgetCents : null;
+    state.cartStartedAt = Number.isFinite(d.cartStartedAt) ? d.cartStartedAt : null;
+    state.lastStore = cleanText(d.lastStore, 40);
+    state.archive = cleanArchive(d.archive);
+    state.synced = d.synced === true;
+    state.acct = typeof d.acct === 'string' ? d.acct.slice(0, 40) : '';
+    state.shadow = cleanShadow(d.shadow);
+    archiveOverflow();
+  }
+
+  /* ---------- Archive: old purchases, kept small ---------- */
+  // Beyond MAX_TRIPS full purchases, an old purchase keeps only what the app still uses:
+  // a one-line summary (month totals, the count, the export) and its prices (the price book).
+  const ARCHIVE_TRIPS = 1000;
+  const ARCHIVE_BYTES = 200000; // one account document holds at most 256 KiB
+  function emptyArchive() { return { trips: [], prices: [] }; }
+  function utf8Len(s) {
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c < 0x80) n += 1;
+      else if (c < 0x800) n += 2;
+      else if (c >= 0xd800 && c < 0xdc00) { n += 4; i++; } else n += 3;
+    }
+    return n;
+  }
+  function cleanArchive(a) {
+    const out = emptyArchive();
+    if (!a || typeof a !== 'object') return out;
+    for (const t of Array.isArray(a.trips) ? a.trips : []) {
+      if (!t || typeof t !== 'object' || !okId(t.id) || !Number.isFinite(t.ts)) continue;
+      out.trips.push({
+        id: t.id, ts: t.ts, s: cleanText(t.s, 40), t: money(t.t, MAX_MONEY * 10) ? t.t : 0,
+        r: money(t.r, MAX_MONEY) ? t.r : null, v: money(t.v, MAX_MONEY * 10) ? t.v : 0, u: isInt(t.u) && t.u >= 0 ? Math.min(t.u, 99999) : 0,
+      });
+    }
+    for (const p of Array.isArray(a.prices) ? a.prices : []) {
+      const n = p && typeof p === 'object' ? cleanText(p.n, 60) : '';
+      if (!n || !Array.isArray(p.e)) continue;
+      const e = [];
+      for (const x of p.e) {
+        if (x && typeof x === 'object' && Number.isFinite(x.ts) && money(x.c, MAX_MONEY) && x.c > 0) e.push({ ts: x.ts, s: cleanText(x.s, 40), c: x.c, k: x.k === 1 ? 1 : 0 });
+      }
+      if (e.length) out.prices.push({ n, e });
+    }
+    return trimArchive(out);
+  }
+  // Same input, same result on every device, so two devices never undo each other's archive.
+  function trimArchive(a) {
+    const tie = (x, y) => { const p = JSON.stringify(x); const q = JSON.stringify(y); return p < q ? -1 : p > q ? 1 : 0; };
+    const trips = uniqueById(a.trips.slice().sort((x, y) => byNewest(x, y) || tie(x, y))).slice(0, ARCHIVE_TRIPS);
+    const byKey = new Map();
+    for (const p of a.prices) {
+      const key = fold(p.n);
+      let q = byKey.get(key);
+      if (!q) { q = { n: p.n, e: [], seen: new Set() }; byKey.set(key, q); } else if (p.n < q.n) q.n = p.n;
+      for (const x of p.e) {
+        const k = x.ts + '|' + x.s + '|' + x.c + '|' + x.k;
+        if (!q.seen.has(k)) { q.seen.add(k); q.e.push(x); }
+      }
+    }
+    let prices = [];
+    for (const [key, q] of byKey) {
+      const e = q.e.sort((x, y) => y.ts - x.ts || x.c - y.c || (x.s < y.s ? -1 : x.s > y.s ? 1 : 0) || x.k - y.k);
+      const keep = e.slice(0, 10);
+      for (const k of [0, 1]) {
+        const same = e.filter((x) => x.k === k);
+        if (!same.length) continue;
+        const cheapest = same.reduce((m, x) => (x.c < m.c ? x : m), same[0]);
+        if (!keep.includes(cheapest)) keep.push(cheapest);
+      }
+      prices.push({ key, n: q.n, e: keep, last: e[0].ts });
+    }
+    prices.sort((x, y) => y.last - x.last || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+    prices = prices.map((p) => ({ n: p.n, e: p.e }));
+    const out = { trips, prices };
+    while (utf8Len(JSON.stringify(out)) > ARCHIVE_BYTES && (out.prices.length > 50 || out.trips.length > 100)) {
+      if (out.prices.length > 50) out.prices.length = Math.floor(out.prices.length * 0.9);
+      else out.trips.length = Math.floor(out.trips.length * 0.9);
+    }
+    return out;
+  }
+  function unionArchive(a, b) {
+    return trimArchive({ trips: a.trips.concat(b.trips), prices: a.prices.concat(b.prices) });
+  }
+  function archiveTrips(trips) {
+    const add = { trips: [], prices: [] };
+    for (const t of trips) {
+      add.trips.push({ id: t.id, ts: t.ts, s: t.store, t: t.totalCents, r: t.receiptCents, v: t.savedCents || 0, u: unitsOf(t.items) });
+      for (const i of t.items) {
+        if (i.name && i.priceCents > 0) add.prices.push({ n: i.name, e: [{ ts: t.ts, s: t.store, c: i.priceCents, k: i.mode === 'kg' ? 1 : 0 }] });
+      }
+    }
+    state.archive = unionArchive(state.archive, add);
+  }
+  // Keeps the newest MAX_TRIPS full purchases and moves the rest into the archive.
+  function archiveOverflow() {
+    const archived = new Set(state.archive.trips.map((t) => t.id));
+    if (archived.size) state.trips = state.trips.filter((t) => !archived.has(t.id));
+    state.trips.sort(byNewest);
+    if (state.trips.length <= MAX_TRIPS) return false;
+    archiveTrips(state.trips.splice(MAX_TRIPS));
+    return true;
+  }
+
+  /* ---------- Price book, built from finished trips ---------- */
+  let bookCache = null;
+  function getBook() {
+    if (bookCache) return bookCache;
+    const map = new Map();
+    const add = (name, e) => {
+      const key = fold(name);
+      let p = map.get(key);
+      if (!p) { p = { key, name, toks: tokens(name), entries: [] }; map.set(key, p); }
+      p.entries.push(e);
+    };
+    for (const t of state.trips) {
+      for (const i of t.items) {
+        if (!i.name || !i.priceCents) continue;
+        add(i.name, { ts: t.ts, store: t.store, priceCents: i.priceCents, mode: i.mode });
+      }
+    }
+    for (const p of state.archive.prices) {
+      for (const x of p.e) add(p.n, { ts: x.ts, store: x.s, priceCents: x.c, mode: x.k ? 'kg' : 'un' });
+    }
+    const list = [];
+    for (const p of map.values()) {
+      p.entries.sort((a, b) => b.ts - a.ts);
+      p.last = p.entries[0];
+      const same = p.entries.filter((e) => e.mode === p.last.mode);
+      p.min = same.reduce((m, e) => (e.priceCents < m.priceCents ? e : m), same[0]);
+      p.prev = same.find((e) => e.ts < p.last.ts) || null;
+      list.push(p);
+    }
+    list.sort((a, b) => b.last.ts - a.last.ts);
+    bookCache = { map, list };
+    return bookCache;
+  }
+  // kind: 'exact' (same name), 'strong' (most words in common) or 'weak' (all the typed words appear).
+  // Only an exact match may say "more expensive / cheaper": a similar name can be another product.
+  function matchProduct(name) {
+    const q = String(name || '').trim();
+    if (!q) return null;
+    const book = getBook();
+    const exact = book.map.get(fold(q));
+    if (exact) return { p: exact, kind: 'exact' };
+    const qt = tokens(q);
+    if (!qt.length) return null;
+    let best = null;
+    let bestScore = 0;
+    for (const p of book.list) {
+      const inter = qt.filter((w) => p.toks.includes(w)).length;
+      if (!inter) continue;
+      const j = inter / new Set(qt.concat(p.toks)).size;
+      const score = j >= 0.6 ? 1 + j : inter === qt.length ? 0.5 + j : 0;
+      if (score > bestScore) { best = p; bestScore = score; }
+    }
+    return best ? { p: best, kind: bestScore >= 1.6 ? 'strong' : 'weak' } : null;
+  }
+  function findProduct(name) {
+    const m = matchProduct(name);
+    return m ? m.p : null;
+  }
+  function estimateFor(name) {
+    const p = findProduct(name);
+    return p && p.last.mode === 'un' ? p.last.priceCents : null;
+  }
+
+  /* ---------- Saving: this device first, the person's Claude account when available ---------- */
+  // Everything is saved on this device straight away. With the Claude account, the app also keeps a
+  // short fingerprint of what the account last confirmed (state.shadow):
+  // - something here that differs from its fingerprint was changed on this device, so it goes up;
+  // - something the account sends that this device did not change replaces the copy here, so a
+  //   thing changed or deleted on another device is changed or deleted here too.
+  let localOk = true;
+  let saveTimer = null;
+  function loadLocal() {
+    try { const raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function saveLocal() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    const data = Object.assign({ schema: 4 }, state);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); localOk = true; return; } catch (e) { /* try a lighter copy */ }
+    try {
+      const lite = Object.assign({}, data, { trips: state.trips.map((t) => Object.assign({}, t, { items: t.items.map((i) => Object.assign({}, i, { thumb: null })) })) });
+      localStorage.setItem(LS_KEY, JSON.stringify(lite));
+      localOk = true;
+    } catch (e) { localOk = false; }
+  }
+  // Many confirmations from the account in a row become one save.
+  function saveLocalSoon() { if (!saveTimer) saveTimer = setTimeout(saveLocal, 800); }
+  function saveLocalNow() { if (saveTimer) saveLocal(); }
+
+  // A short fingerprint of a value: enough to notice a change without keeping a second copy.
+  function fp(v) {
+    const s = JSON.stringify(v === undefined ? null : v);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return s.length.toString(36) + '.' + (h >>> 0).toString(36);
+  }
+  const ROOT_FIELDS = ['budgetCents', 'cartStartedAt', 'lastStore'];
+  function emptyShadow() { return { root: {}, list: {}, cart: {}, trips: {}, archive: '' }; }
+  function cleanShadow(s) {
+    const out = emptyShadow();
+    if (!s || typeof s !== 'object') return out;
+    const ok = (v) => typeof v === 'string' && /^[0-9a-z]{1,8}\.[0-9a-z]{1,8}$/.test(v);
+    for (const k of ['root', 'list', 'cart', 'trips']) {
+      const src = s[k] && typeof s[k] === 'object' ? s[k] : {};
+      for (const id of Object.keys(src)) {
+        if ((k === 'root' ? ROOT_FIELDS.includes(id) : okId(id)) && ok(src[id])) out[k][id] = src[id];
+      }
+    }
+    if (ok(s.archive)) out.archive = s.archive;
+    return out;
+  }
+
+  const cloud = {
+    on: false, ready: false, R: null, A: null, cartC: null, tripsC: null, unsubs: [], got: {},
+    slowTimer: null, flushTimer: null, retryTimer: null, retryMs: 0, failing: false, quotaWarned: false,
+    inFlight: new Set(), stuck: new Set(), marks: {},
+  };
+  // Counts what the account sent for each thing. A write confirmed after a newer copy arrived must not
+  // record its own body as "what the account has": that copy is newer, and the next round compares with it.
+  const bump = (key) => { cloud.marks[key] = (cloud.marks[key] || 0) + 1; };
+  function bumpChanged(kind, before, after) {
+    for (const id of new Set(Object.keys(before).concat(Object.keys(after)))) if (before[id] !== after[id]) bump(kind + ':' + id);
+  }
+  const TERMINAL = new Set(['revoked', 'not_granted', 'capability_disabled', 'capability_removed']);
+  const KNOWN = new Set(['invalid_argument', 'resource_exhausted', 'quota_exceeded', 'unavailable', 'revoked', 'not_granted', 'capability_disabled', 'capability_removed', 'transform_error']);
+  function errCode(e) {
+    if (e && e.name === 'TypeError') return 'invalid_argument';
+    const c = e && e.code;
+    if (c === 'transform_error') return 'invalid_argument';
+    return KNOWN.has(c) ? c : 'unavailable';
+  }
+  const docData = (snap) => (snap && snap.exists ? snap.data() : null);
+  function cleanRoot(d) {
+    d = d && typeof d === 'object' ? d : {};
+    return {
+      updatedAt: Number.isFinite(d.updatedAt) ? d.updatedAt : 0,
+      budgetCents: isInt(d.budgetCents) && d.budgetCents > 0 && d.budgetCents <= MAX_MONEY ? d.budgetCents : null,
+      cartStartedAt: Number.isFinite(d.cartStartedAt) ? d.cartStartedAt : null,
+      lastStore: cleanText(d.lastStore, 40),
+      list: uniqueById((Array.isArray(d.list) ? d.list : []).map(cleanListItem)).slice(0, MAX_LIST),
+    };
+  }
+  function remoteMap(snap, clean) {
+    const m = new Map();
+    for (const d of snap.docs) {
+      const v = clean(Object.assign({}, d.data(), { id: d.id }));
+      if (v && v.id === d.id && !m.has(d.id)) m.set(d.id, v);
+    }
+    return m;
+  }
+  // remote: what the account holds now; base: fingerprints of what it held before.
+  // Changed on this device wins; anything else follows the account, deletions included.
+  function merge3(local, remote, base) {
+    const localById = new Map(local.map((x) => [x.id, x]));
+    const items = [];
+    const newBase = {};
+    for (const [id, r] of remote) {
+      const fr = fp(r);
+      newBase[id] = fr;
+      const l = localById.get(id);
+      const changedHere = l ? fp(l) !== base[id] : base[id] !== undefined;
+      if (!changedHere) items.push(l && fp(l) === fr ? l : r);
+      else if (l) items.push(l);
+    }
+    for (const l of local) {
+      if (remote.has(l.id)) continue;
+      // Not in the account: new on this device (keep), or deleted on another device (drop).
+      if (base[l.id] === undefined || fp(l) !== base[l.id]) items.push(l);
+    }
+    return { items, base: newBase };
+  }
+  function mergeRoot(snap) {
+    const r = cleanRoot(docData(snap));
+    const sh = state.shadow;
+    const before = fp([sh.root, sh.list]);
+    for (const k of ROOT_FIELDS) {
+      const changedHere = sh.root[k] !== undefined && fp(state[k]) !== sh.root[k];
+      if (!changedHere) state[k] = r[k];
+      sh.root[k] = fp(r[k]);
+    }
+    const m = merge3(state.list, new Map(r.list.map((l) => [l.id, l])), sh.list);
+    state.list = m.items.slice(0, MAX_LIST);
+    sh.list = m.base;
+    if (fp([sh.root, sh.list]) !== before) bump('root');
+  }
+  function mergeCart(snap) {
+    const m = merge3(state.cart, remoteMap(snap, cleanItem), state.shadow.cart);
+    bumpChanged('cart', state.shadow.cart, m.base);
+    state.cart = m.items.sort(byAdded);
+    state.shadow.cart = m.base;
+  }
+  function mergeTrips(snap) {
+    const m = merge3(state.trips, remoteMap(snap, cleanTrip), state.shadow.trips);
+    bumpChanged('trips', state.shadow.trips, m.base);
+    state.trips = m.items;
+    state.shadow.trips = m.base;
+  }
+  function mergeArchive(snap) {
+    const r = cleanArchive(docData(snap));
+    const print = fp(r);
+    if (print !== state.shadow.archive) bump('archive');
+    state.shadow.archive = print;
+    state.archive = unionArchive(state.archive, r);
+  }
+  // First contact of this device with the account (or the first time with this version of the app):
+  // the same rule as before — the newer side wins for the cart, the list and the settings — and the
+  // purchases of both sides are kept.
+  function migrate() {
+    const g = cloud.got;
+    const r = cleanRoot(docData(g.root));
+    const cart = remoteMap(g.cart, cleanItem);
+    const trips = remoteMap(g.trips, cleanTrip);
+    const arch = cleanArchive(docData(g.archive));
+    const cloudHas = !!(g.root && g.root.exists) || cart.size > 0 || trips.size > 0;
+    const localHas = state.cart.length > 0 || state.list.length > 0 || state.trips.length > 0 || state.budgetCents != null;
+    const takeCloud = cloudHas && (r.updatedAt >= state.updatedAt || !localHas);
+    const sh = emptyShadow();
+    for (const k of ROOT_FIELDS) sh.root[k] = fp(r[k]);
+    for (const l of r.list) sh.list[l.id] = fp(l);
+    for (const [id, v] of cart) sh.cart[id] = fp(v);
+    for (const [id, v] of trips) sh.trips[id] = fp(v);
+    sh.archive = fp(arch);
+    if (takeCloud) {
+      for (const k of ROOT_FIELDS) state[k] = r[k];
+      state.list = r.list;
+      state.cart = Array.from(cart.values()).sort(byAdded);
+    }
+    const all = new Map(trips);
+    for (const t of state.trips) if (!all.has(t.id) || !takeCloud) all.set(t.id, t);
+    state.trips = Array.from(all.values());
+    state.archive = unionArchive(state.archive, arch);
+    state.shadow = sh;
+  }
+  function firstReconcile() {
+    clearTimeout(cloud.slowTimer);
+    if (!state.synced) migrate();
+    else { mergeRoot(cloud.got.root); mergeCart(cloud.got.cart); mergeTrips(cloud.got.trips); mergeArchive(cloud.got.archive); }
+    state.synced = true;
+    cloud.ready = true;
+    tidy();
+    saveLocal();
+    render();
+    setSync('cloud');
+    scheduleFlush(50);
+  }
+  function onSnap(kind, snap) {
+    if (!cloud.on) return;
+    cloud.got[kind] = snap;
+    if (!cloud.ready) {
+      if (cloud.got.root && cloud.got.cart && cloud.got.trips && cloud.got.archive) firstReconcile();
+      return;
+    }
+    if (kind === 'root') mergeRoot(snap);
+    else if (kind === 'cart') mergeCart(snap);
+    else if (kind === 'trips') mergeTrips(snap);
+    else mergeArchive(snap);
+    tidy();
+    saveLocalSoon();
+    render();
+    scheduleFlush(); // writes only what this device changed and the account does not have yet
+  }
+  function listen(kind, ref) {
+    let tries = 0;
+    const start = () => {
+      if (!cloud.on) return;
+      let unsub = null;
+      let dead = false;
+      try {
+        unsub = ref.onSnapshot((snap) => {
+          if (dead || !cloud.on) return;
+          const md = snap && snap.metadata;
+          if (md && (md.fromCache || md.hasPendingWrites)) return; // wait for the account's own answer
+          tries = 0;
+          onSnap(kind, snap);
+        }, (e) => {
+          dead = true;
+          const i = cloud.unsubs.indexOf(unsub);
+          if (i >= 0) cloud.unsubs.splice(i, 1);
+          if (!cloud.on) return;
+          const code = errCode(e);
+          if (TERMINAL.has(code) || code === 'invalid_argument') { cloudOff(); return; }
+          // The connection was lost: listen again, waiting longer each time.
+          tries++;
+          setTimeout(start, Math.min(300000, 5000 * Math.pow(2, Math.min(tries, 7) - 1)) * (0.8 + Math.random() * 0.4));
+        });
+      } catch (e) { cloudOff(); return; }
+      if (!dead) cloud.unsubs.push(unsub);
+    };
+    start();
+  }
+
+  // What this device has and the account does not (or has differently).
+  function pendingOps() {
+    const sh = state.shadow;
+    const ops = [];
+    const listIds = new Set(state.list.map((l) => l.id));
+    const rootDirty = ROOT_FIELDS.some((k) => fp(state[k]) !== sh.root[k])
+      || state.list.some((l) => fp(l) !== sh.list[l.id])
+      || Object.keys(sh.list).some((id) => !listIds.has(id));
+    if (rootDirty) ops.push({ key: 'root' });
+    for (const [kind, arr] of [['cart', state.cart], ['trips', state.trips]]) {
+      const ids = new Set();
+      for (const x of arr) {
+        ids.add(x.id);
+        if (fp(x) !== sh[kind][x.id]) ops.push({ key: kind + ':' + x.id, kind, id: x.id });
+      }
+      for (const id of Object.keys(sh[kind])) if (!ids.has(id)) ops.push({ key: kind + ':' + id, kind, id });
+    }
+    if (fp(state.archive) !== sh.archive) ops.push({ key: 'archive' });
+    return ops;
+  }
+  function scheduleFlush(ms) {
+    if (!cloud.on || !cloud.ready) return;
+    // After a failure the next try waits for its turn: a refused write comes back as a new
+    // snapshot, and answering each snapshot with the same write again would never stop.
+    if (cloud.retryTimer) return;
+    clearTimeout(cloud.flushTimer);
+    cloud.flushTimer = setTimeout(flush, ms == null ? 700 : ms);
+  }
+  // The account refuses too many writes at once: a few at a time, the next ones when these finish.
+  const MAX_WRITES = 4;
+  function flush() {
+    clearTimeout(cloud.flushTimer);
+    cloud.flushTimer = null;
+    if (!cloud.on || !cloud.ready) return;
+    const ops = pendingOps().filter((op) => !cloud.stuck.has(op.key));
+    for (const op of ops) {
+      if (cloud.inFlight.size >= MAX_WRITES) break;
+      if (!cloud.inFlight.has(op.key)) runOp(op);
+    }
+    if (!ops.length && !cloud.inFlight.size) { cloud.failing = false; cloud.retryMs = 0; }
+    showSyncState(ops.length > 0);
+  }
+  function showSyncState(hasPending) {
+    if (!cloud.on) { setSync('local'); return; }
+    if (!cloud.ready) return;
+    const behind = hasPending && (cloud.failing || navigator.onLine === false);
+    setSync(behind || cloud.stuck.size ? 'pending' : 'cloud');
+  }
+  // A purchase too big for one account document (many photos) goes up without its photos.
+  function stripTripPhotos(id) {
+    const t = state.trips.find((x) => x.id === id);
+    if (!t || !t.items.some((i) => i.thumb)) return false;
+    t.items = t.items.map((i) => Object.assign({}, i, { thumb: null }));
+    t.photosPurged = true;
+    return true;
+  }
+  function writeOp(op) {
+    const mark = cloud.marks[op.key] || 0;
+    const noNewerCopy = () => (cloud.marks[op.key] || 0) === mark;
+    if (op.key === 'root') {
+      const body = { v: 3, updatedAt: state.updatedAt, budgetCents: state.budgetCents, cartStartedAt: state.cartStartedAt, lastStore: state.lastStore, list: state.list.map((l) => Object.assign({}, l)) };
+      const root = {};
+      const list = {};
+      for (const k of ROOT_FIELDS) root[k] = fp(body[k]);
+      for (const l of body.list) list[l.id] = fp(l);
+      return cloud.R.set(body).then(() => { if (noNewerCopy()) { state.shadow.root = root; state.shadow.list = list; } });
+    }
+    if (op.key === 'archive') {
+      const body = JSON.parse(JSON.stringify(state.archive));
+      const print = fp(body);
+      return cloud.A.set(body).then(() => { if (noNewerCopy()) state.shadow.archive = print; });
+    }
+    const arr = op.kind === 'cart' ? state.cart : state.trips;
+    const ref = (op.kind === 'cart' ? cloud.cartC : cloud.tripsC).doc(op.id);
+    const cur = arr.find((x) => x.id === op.id);
+    if (!cur) return ref.delete().then(() => { if (noNewerCopy()) delete state.shadow[op.kind][op.id]; });
+    if (op.kind === 'trips' && utf8Len(JSON.stringify(cur)) > 240000) stripTripPhotos(op.id);
+    const body = JSON.parse(JSON.stringify(cur));
+    const print = fp(body);
+    return ref.set(body).then(() => { if (noNewerCopy()) state.shadow[op.kind][op.id] = print; });
+  }
+  async function runOp(op) {
+    cloud.inFlight.add(op.key);
+    let err = null;
+    try {
+      await writeOp(op);
+    } catch (e) {
+      err = e;
+      const code = errCode(e);
+      if (code === 'unavailable' && cloud.on) {
+        // A passing hiccup: one more try after a short random pause.
+        await sleep(700 + Math.random() * 1600);
+        try { if (cloud.on) { await writeOp(op); err = null; } } catch (e2) { err = e2; }
+      } else if (code === 'invalid_argument' && op.kind === 'trips' && stripTripPhotos(op.id)) {
+        try { await writeOp(op); err = null; } catch (e3) { err = e3; }
+      }
+    }
+    cloud.inFlight.delete(op.key);
+    if (!cloud.on) return;
+    if (err) { onWriteError(op, err); return; }
+    saveLocalSoon();
+    // Next: the writes still waiting, or a last look that marks everything as sent.
+    if (!cloud.retryTimer) scheduleFlush(cloud.inFlight.size ? 30 : 300);
+  }
+  function onWriteError(op, e) {
+    const code = errCode(e);
+    if (TERMINAL.has(code)) { cloudOff(); return; }
+    cloud.failing = true;
+    if (code === 'invalid_argument') {
+      cloud.stuck.add(op.key); // cannot go up as it is; it stays saved on this device
+    } else {
+      if (code === 'quota_exceeded' && !cloud.quotaWarned) {
+        cloud.quotaWarned = true;
+        showToast('O espaço da conta está cheio. Apague compras antigas no Histórico.');
+      }
+      backoff(code === 'quota_exceeded' ? 300000 : 15000);
+    }
+    showSyncState(true);
+  }
+  function backoff(min) {
+    // A round already planned by another write that just finished must wait too.
+    clearTimeout(cloud.flushTimer);
+    cloud.flushTimer = null;
+    if (cloud.retryTimer) return;
+    cloud.retryMs = Math.min(300000, Math.max(min, cloud.retryMs * 2));
+    cloud.retryTimer = setTimeout(() => { cloud.retryTimer = null; flush(); }, cloud.retryMs * (0.8 + Math.random() * 0.4));
+  }
+  function retryNow() {
+    if (!cloud.on || !cloud.ready) return;
+    clearTimeout(cloud.retryTimer);
+    cloud.retryTimer = null;
+    cloud.retryMs = 0;
+    scheduleFlush(0);
+  }
+  function cloudOff() {
+    if (!cloud.on) return;
+    cloud.on = false;
+    cloud.ready = false;
+    for (const u of cloud.unsubs.splice(0)) { try { u(); } catch (e) { /* ignore */ } }
+    clearTimeout(cloud.flushTimer);
+    clearTimeout(cloud.retryTimer);
+    clearTimeout(cloud.slowTimer);
+    cloud.retryTimer = null;
+    saveLocal();
+    setSync('local');
+  }
+  async function initCloud() {
+    const C = window.claude;
+    if (!C || typeof C.use !== 'function') { setSync('local'); return; }
+    let db = null;
+    let user = null;
+    try { [db, user] = await Promise.all([C.use('db'), C.use('user')]); } catch (e) { setSync('local'); return; }
+    if (!db || !user) { setSync('local'); return; }
+    let id = null;
+    try { id = await user.id(); } catch (e) { id = null; }
+    if (!id) { setSync('local'); return; }
+    let canWrite = null;
+    try { canWrite = typeof user.can === 'function' ? await user.can('data.write') : null; } catch (e) { canWrite = null; }
+    if (canWrite === false) { setSync('local'); return; }
+    try {
+      cloud.R = db.doc('data/users/' + id + '/app');
+      cloud.A = db.doc('data/users/' + id + '/archive');
+      cloud.cartC = cloud.R.collection('cart');
+      cloud.tripsC = cloud.R.collection('trips');
+    } catch (e) { setSync('local'); return; }
+    // Data saved here for another Claude account starts again from the first-contact rule.
+    const acct = fp(String(id));
+    if (state.acct !== acct) { state.acct = acct; state.synced = false; }
+    cloud.on = true;
+    setSync('loading');
+    cloud.slowTimer = setTimeout(() => {
+      if (cloud.on && !cloud.ready) setSync('local', 'A sua conta ainda não respondeu. Por agora fica guardado neste aparelho.');
+    }, 10000);
+    listen('root', cloud.R);
+    listen('cart', cloud.cartC);
+    listen('trips', cloud.tripsC);
+    listen('archive', cloud.A);
+  }
+  function purgeOldPhotos() {
+    const limit = Date.now() - PHOTO_DAYS * 864e5;
+    let changed = false;
+    for (const t of state.trips) {
+      if (t.ts < limit && t.items.some((i) => i.thumb)) {
+        t.items = t.items.map((i) => Object.assign({}, i, { thumb: null }));
+        t.photosPurged = true;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+  function tidy() {
+    const a = archiveOverflow();
+    const b = purgeOldPhotos();
+    return a || b;
+  }
+  function commit() {
+    state.updatedAt = Date.now();
+    saveLocal();
+    if (cloud.on && cloud.ready) scheduleFlush();
+    else if (!cloud.on && !localOk) setSync('local');
+    render();
+    noteActivity();
+  }
+
+  let syncKind = 'local';
+  const SYNC_TEXT = { loading: 'A ligar à conta…', cloud: 'Guardado na conta', pending: 'Por sincronizar', local: 'Só neste aparelho', none: 'Sem gravação' };
+  const SYNC_HELP = {
+    loading: 'A ligar à sua conta Claude para guardar as compras.',
+    cloud: 'As compras ficam guardadas na sua conta Claude e aparecem noutros aparelhos.',
+    pending: 'Há alterações guardadas neste aparelho que ainda não chegaram à conta. A app volta a tentar sozinha quando houver rede.',
+    local: 'Fica guardado só neste aparelho. Se limpar os dados do navegador, perde a lista.',
+    none: 'Este navegador não deixa guardar. Não feche a página durante a compra.',
+  };
+  function setSync(kind, msg) {
+    syncKind = kind === 'local' && !localOk ? 'none' : kind;
+    const el = $('sync');
+    el.textContent = SYNC_TEXT[syncKind];
+    el.dataset.state = syncKind;
+    if (msg) showToast(msg);
+  }
+
+  /* ---------- Keep the screen on while shopping ---------- */
+  // Only while there is something in the cart, and not for more than 30 minutes without a touch.
+  const IDLE_MS = 30 * 60000;
+  let wakeLock = null;
+  let wakeBusy = false;
+  let wakeRetryAt = 0;
+  let idleTimer = null;
+  async function keepAwake() {
+    if (wakeLock || wakeBusy || Date.now() < wakeRetryAt || !state.cart.length || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+    wakeBusy = true;
+    try {
+      const w = await navigator.wakeLock.request('screen');
+      if (!state.cart.length || document.visibilityState !== 'visible') { w.release().catch(() => {}); return; }
+      wakeLock = w;
+      w.addEventListener('release', () => { if (wakeLock === w) wakeLock = null; });
+    } catch (e) {
+      wakeLock = null;
+      wakeRetryAt = Date.now() + 60000;
+    } finally {
+      wakeBusy = false;
+    }
+  }
+  function releaseAwake() {
+    const w = wakeLock;
+    wakeLock = null;
+    if (w) w.release().catch(() => {});
+  }
+  function noteActivity() {
+    clearTimeout(idleTimer);
+    if (state.cart.length) {
+      idleTimer = setTimeout(releaseAwake, IDLE_MS);
+      keepAwake();
+    } else releaseAwake();
+  }
+  function buzz() { try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* ignore */ } }
+
+  /* ---------- Reading the price tag with Claude ---------- */
+  const READ_PROMPT = [
+    'You are reading a photo of a supermarket shelf price label in Portugal (chains such as Pingo Doce, Continente, Lidl, Aldi, Intermarché, Mercadona, Auchan, Minipreço).',
+    'Portuguese labels usually show the product name, the selling price for one unit or package (normally the largest number, for example "1,99 €"), and a smaller reference price per kg or per litre (next to "€/kg", "€/Kg", "€/L", "€/Lt" or "Preço por kg"). Some also show an old crossed-out price, a promotion ("Leve 3 Pague 2", "2.ª unidade -50%", "-30%", "Desconto Cartão", "Poupa Mais", "Cartão Continente") and a promotional price.',
+    '',
+    'Reply with only one JSON object and no other text:',
+    '{"name": string, "price": number|null, "price_per_kg": number|null, "sold_by_weight": boolean, "promo": string|null, "promo_kind": "leve_pague"|"segunda_unidade"|"desconto_imediato"|"desconto_cartao"|null, "promo_x": number|null, "promo_y": number|null, "promo_pct": number|null, "other_prices": number[], "readable": boolean}',
+    '',
+    'Rules:',
+    '- price: what the shopper pays at the till for ONE unit or package, in euros, with a dot for decimals (1.99). If the label shows a promotional price for a single unit (an old price crossed out and a new one), use the new price and put the old one in other_prices.',
+    '- price_per_kg: the per-kg or per-litre reference price if shown, else null.',
+    '- sold_by_weight: true only when the product is sold loose by weight (fruit, vegetables, meat, fish, deli counter) and the label gives only a price per kg; then price is null.',
+    '- name: a short, clean product name in normal Portuguese capitalisation, with brand and size when visible, for example "Atum natural Ramirez 3x80 g". Expand obvious abbreviations. At most 40 characters. "" if unreadable.',
+    '- promo: the promotion text in Portuguese as written, at most 60 characters, else null.',
+    '- promo_kind: "leve_pague" for "Leve X Pague Y" (promo_x = X, promo_y = Y); "segunda_unidade" for a discount on the second unit (promo_pct = the % off that unit, for example 50); "desconto_imediato" for a % off paid at the till that is NOT already included in price (promo_pct); "desconto_cartao" when the discount is credited to a loyalty card instead of paid less at the till (promo_pct if a % is shown); null when there is no promotion or it is already included in price.',
+    '- other_prices: other prices visible on the label (old price, card price), as numbers.',
+    '- readable: false if the photo has no readable price label.',
+    'Never guess a number you cannot see clearly.',
+  ].join('\n');
+  const READ_MSG = {
+    unavailable: 'Não consegui ler a foto neste aparelho. Escreva o preço; a foto fica guardada.',
+    bad_photo: 'Não consegui abrir esta foto. Tire outra ou escreva o preço.',
+    ocr_failed: 'A leitura falhou. Tente outra vez ou escreva o preço.',
+    not_granted: 'Sem autorização para ler fotos. Escreva o preço ou dê autorização.',
+    invalid_json: 'Não percebi a etiqueta. Tente outra vez ou escreva o preço.',
+    sampling_disabled: 'A leitura automática está desligada nesta conta. Escreva o preço.',
+    rate_limited: 'Muitas leituras seguidas. Espere um pouco ou escreva o preço.',
+    session_expired: 'Inicie sessão no Claude outra vez para ler fotos.',
+    image_rejected: 'Esta foto não serve. Tire outra ou escreva o preço.',
+    refused: 'Não consegui ler esta foto. Escreva o preço.',
+    unreadable: 'Não encontrei um preço nesta foto. Tire outra mais perto ou escreva o preço.',
+    failed: 'A leitura falhou, talvez pela rede. Tente outra vez ou escreva o preço.',
+  };
+  const PERMANENT = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'images_unavailable']);
+  let samplePromise = null;
+  function getSample() {
+    if (!samplePromise) {
+      const C = window.claude;
+      samplePromise = C && typeof C.use === 'function' ? C.use('sample').catch(() => null) : Promise.resolve(null);
+    }
+    return samplePromise;
+  }
+  let imgCheck = null;
+  function canReadImages() {
+    if (!imgCheck) {
+      imgCheck = getSample().then((s) => {
+        if (!s || typeof s.limits !== 'function') return false;
+        return s.limits().then((l) => !!(l && l.images)).catch(() => false);
+      }).catch(() => false);
+    }
+    return imgCheck;
+  }
+  let aiOff = null;
+  let readCtl = null;
+  async function fixPermission() {
+    const C = window.claude;
+    const help = 'Não consegui abrir. Procure "Permissões" no menu desta página e volte a permitir.';
+    let perms = null;
+    try { perms = C && typeof C.use === 'function' ? await C.use('permissions') : null; } catch (e) { perms = null; }
+    if (!perms) { setReadStatus('off', help); return; }
+    try { await perms.manage(); } catch (e) { setReadStatus('off', help); return; }
+    let st = null;
+    try { st = await perms.state('sample'); } catch (e) { st = null; }
+    if (st === 'granted' || st === 'prompt') {
+      aiOff = null;
+      if (sheet.open && sheet.blob) startReading('quick');
+    }
+  }
+
+  function drawScaled(src, maxSide) {
+    const w = src.width || src.naturalWidth;
+    const hgt = src.height || src.naturalHeight;
+    const k = Math.min(1, maxSide / Math.max(w, hgt));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k));
+    c.height = Math.max(1, Math.round(hgt * k));
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    return c;
+  }
+  async function prepPhoto(file) {
+    let src = null;
+    let url = null;
+    try {
+      if ('createImageBitmap' in window) {
+        try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { src = null; }
+      }
+      if (!src) {
+        url = URL.createObjectURL(file);
+        const img = new Image();
+        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+        src = img;
+      }
+      const big = drawScaled(src, 1600);
+      const blob = await new Promise((res) => big.toBlob(res, 'image/jpeg', 0.85));
+      if (!blob) return { blob: null, thumb: null, w: 0, h: 0 };
+      const thumb = drawScaled(src, 112).toDataURL('image/jpeg', 0.6);
+      return { blob, thumb: THUMB_RE.test(thumb) ? thumb : null, w: big.width, h: big.height };
+    } catch (e) {
+      // The phone could not open this picture: do not send the raw file anywhere.
+      return { blob: null, thumb: null, w: 0, h: 0 };
+    } finally {
+      if (src && typeof src.close === 'function') src.close();
+      if (url) URL.revokeObjectURL(url);
+    }
+  }
+
+  /* ---------- Finding the price in what the phone read ---------- */
+  /* OCR-PARSE-START */
+  // passes: [{ data, scale }] — Tesseract results for the same photo read at different sizes
+  // (scale = that copy's size / the original's). Returns the same shape as the Claude reading.
+  function parseTagOcr(passes, extras) {
+    const DIGIT_FIX = { O: '0', o: '0', D: '0', Q: '0', l: '1', I: '1', i: '1', '|': '1', '!': '1', S: '5', s: '5', B: '8', Z: '2', z: '2', g: '9', q: '9' };
+    const UNIT_TOKEN = /\d\s*(g|gr|kg|ml|cl|l|lt|un|x)\b|\bx\s*\d/i;
+    const PER_UNIT = /€\s*\/\s*\S{1,3}|\/\s*(kg|k9|kq|l|lt|un|uni)\b|\bpor\s*(kg|l|lt|litro|unid)|\bpre[çc]o\s*(por|\/)|\d\s*kg\s*=|\bkg\s*[:=]|\b1\s*kg\b/i;
+    const numFix = (t) => {
+      const core = t.replace(/^[€]|[€eE]$/g, '');
+      const digits = (core.match(/\d/g) || []).length;
+      const others = core.replace(/[\d,.\s]/g, '').length;
+      if (!digits || others > 1 || core.length > 7) return t;
+      return core.split('').map((ch) => (/[\d,.]/.test(ch) ? ch : (DIGIT_FIX[ch] || ch))).join('');
+    };
+    const linesOf = (data, scale) => {
+      const out = [];
+      for (const b of (data && data.blocks) || []) {
+        for (const p of b.paragraphs || []) {
+          for (const l of p.lines || []) {
+            const ws = [];
+            for (const w of l.words || []) {
+              const t = String(w.text || '').trim();
+              if (!t || !w.bbox) continue;
+              ws.push({ text: t, conf: Number(w.confidence) || 0, x0: w.bbox.x0 / scale, y0: w.bbox.y0 / scale, x1: w.bbox.x1 / scale, y1: w.bbox.y1 / scale, h: (w.bbox.y1 - w.bbox.y0) / scale });
+            }
+            if (!ws.length) continue;
+            ws.sort((a, c) => a.x0 - c.x0);
+            out.push({ words: ws, text: ws.map((w) => w.text).join(' '), y0: Math.min(...ws.map((w) => w.y0)), h: Math.max(...ws.map((w) => w.h)) });
+          }
+        }
+      }
+      return out.sort((a, c) => a.y0 - c.y0);
+    };
+    const list = Array.isArray(passes) ? passes : [{ data: passes, scale: 1 }];
+    const all = list.map((p) => ({ scale: p.scale || 1, lines: linesOf(p.data, p.scale || 1) }));
+
+    const cands = [];
+    const add = (cents, h, conf, perUnit, kind) => {
+      if (!(cents > 0 && cents < 100000)) return;
+      const score = h * (perUnit ? 0.45 : 1) * (conf < 50 ? 0.75 : 1) * (kind === 'C' ? 0.7 : 1);
+      cands.push({ cents, h, perUnit, kind, score });
+    };
+    // A quantity written as a separate word ("500 g", "0,75 L", "x 6") is not a price.
+    const QTY_WORD = /^(g|gr|grs|kg|ml|cl|l|lt|lts)\.?$/i;
+    const BARCODE = /(?:\d[\s-]?){8,}/;
+    for (const pass of all) {
+      for (const line of pass.lines) {
+        const perUnit = PER_UNIT.test(line.text);
+        const barcode = BARCODE.test(line.text); // the digits of a barcode line are not prices
+        const ws = line.words;
+        for (let i = 0; i < ws.length; i++) {
+          const w = ws[i];
+          if (UNIT_TOKEN.test(w.text)) continue;
+          if ((ws[i + 1] && QTY_WORD.test(ws[i + 1].text)) || (ws[i - 1] && /^x$/i.test(ws[i - 1].text))) continue;
+          const t = numFix(w.text);
+          const m = t.match(/(\d{1,3})\s*[,.]\s*(\d{2})(?!\d)/);
+          if (m && !/\d[,.]\d{3}/.test(t)) {
+            add(parseInt(m[1], 10) * 100 + parseInt(m[2], 10), w.h, w.conf, perUnit, 'A');
+            continue;
+          }
+          if (barcode) continue;
+          const n = ws[i + 1];
+          if (n && /^\d{1,3}[,.]?$/.test(t) && !UNIT_TOKEN.test(n.text) && !(ws[i + 2] && QTY_WORD.test(ws[i + 2].text))) {
+            const tn = numFix(n.text).replace(/[€eE]$/, '');
+            if (/^\d{2}$/.test(tn) && n.x0 - w.x1 < w.h * 0.9 && n.h <= w.h * 0.92 && Math.abs(n.y0 - w.y0) < w.h * 0.45) {
+              add(parseInt(t, 10) * 100 + parseInt(tn, 10), w.h, Math.min(w.conf, n.conf), perUnit, 'B');
+              i++;
+              continue;
+            }
+          }
+          if (/^\d{3,4}€?$/.test(t)) {
+            const d = t.replace(/\D/g, '');
+            add(parseInt(d.slice(0, -2), 10) * 100 + parseInt(d.slice(-2), 10), w.h, w.conf, perUnit, 'C');
+          }
+        }
+      }
+    }
+    for (const ex of extras || []) {
+      const txt = String(ex.text || '').replace(/\s+/g, ' ').trim();
+      const d = txt.replace(/\D/g, '');
+      if (ex.kind === 'whole') {
+        const mm = txt.match(/(\d{1,3})\s*[,.]\s*(\d{2})(?!\d)/);
+        if (mm && (ex.euros == null || parseInt(mm[1], 10) === ex.euros)) { add(parseInt(mm[1], 10) * 100 + parseInt(mm[2], 10), ex.h * (ex.full ? 1 : 1.02), 90, ex.perUnit, 'R'); continue; }
+        if (ex.euros != null) {
+          const e = String(ex.euros);
+          if (d.startsWith(e) && d.length === e.length + 2) add(ex.euros * 100 + parseInt(d.slice(e.length), 10), ex.h * 1.02, 80, ex.perUnit, 'R');
+        } else if (!ex.full && (d.length === 3 || d.length === 4)) {
+          add(parseInt(d.slice(0, -2), 10) * 100 + parseInt(d.slice(-2), 10), ex.h, 70, ex.perUnit, 'R');
+        }
+      } else if (ex.kind === 'sup' && ex.euros != null && (d.length === 2 || d.length === 3)) {
+        add(ex.euros * 100 + parseInt(d.slice(-2), 10), ex.h * 1.02, d.length === 2 ? 80 : 60, ex.perUnit, 'R');
+        // Three digits: one is a stray piece of the comma, of the big digit or of the € sign, at either
+        // end. The last two stay the first guess; the first two are offered too, to tap.
+        if (d.length === 3) add(ex.euros * 100 + parseInt(d.slice(0, 2), 10), ex.h, 55, ex.perUnit, 'R');
+      }
+    }
+    cands.sort((a, c) => c.score - a.score);
+    const seen = new Set();
+    const uniq = [];
+    for (const c of cands) if (!seen.has(c.cents)) { seen.add(c.cents); uniq.push(c); }
+
+    const BAD = /pre[çc]o|promo|leve|pague|unidade|desconto|cart[ãa]o|poupa|oferta|€|\/\s*k|\/\s*l\b/i;
+    let name = '';
+    for (const pass of all.slice().sort((a, c) => c.scale - a.scale)) {
+      for (const line of pass.lines) {
+        const t = line.text.replace(/[^\p{L}\p{N}\s.,%-]/gu, ' ').replace(/\s+/g, ' ').trim();
+        const letters = (t.match(/\p{L}/gu) || []).length;
+        const avgConf = line.words.reduce((s2, w) => s2 + w.conf, 0) / line.words.length;
+        if (letters < 5 || letters < t.length * 0.55 || !/\p{L}{3,}/u.test(t) || BAD.test(line.text) || avgConf < 55) continue;
+        const lower = t.toLowerCase();
+        name = (lower.charAt(0).toUpperCase() + lower.slice(1)).slice(0, 40);
+        break;
+      }
+      if (name) break;
+    }
+
+    const full = all.map((p) => p.lines.map((l) => l.text).join('\n')).join('\n');
+    let promo = null;
+    let kind = null;
+    let px = null;
+    let py = null;
+    let pct = null;
+    let m = full.match(/LEVE\s*(\d{1,2})\W{0,3}\s*PAGUE\W{0,3}\s*(\d{1,2})/i);
+    if (m && +m[1] > +m[2] && +m[2] >= 1) { kind = 'leve_pague'; px = +m[1]; py = +m[2]; promo = 'Leve ' + px + ' pague ' + py; }
+    else if ((m = full.match(/(2\s*[.,]?\s*[ªºa°]?\s*unid\w*|segunda\s+unid\w*)[^\n%]*?(\d{1,3})\s*%/i))) { kind = 'segunda_unidade'; pct = +m[2]; promo = '2.ª unidade -' + pct + '%'; }
+    else if (/cart[ãa]o|poupa\s*mais/i.test(full) && /\d{1,3}\s*%/.test(full)) { promo = 'Desconto em cartão'; }
+    else if ((m = full.match(/-\s*(\d{1,2})\s*%/))) { promo = '-' + m[1] + '%'; }
+
+    const maxH = Math.max(1, ...all.filter((p) => p.scale === 1).flatMap((p) => p.lines.map((l) => l.h)), ...uniq.map((c) => c.h));
+    if (uniq.length && uniq[0].perUnit && uniq[0].h < maxH * 0.45 && !uniq.some((c) => !c.perUnit)) uniq.length = 0;
+    if (!uniq.length) return { name, price: null, price_per_kg: null, sold_by_weight: false, promo, promo_kind: kind, promo_x: px, promo_y: py, promo_pct: pct, other_prices: [], readable: false };
+    const top = uniq[0];
+    const nonUnit = uniq.filter((c) => !c.perUnit);
+    const unit = uniq.filter((c) => c.perUnit);
+    let price = null;
+    let perKg = null;
+    let byWeight = false;
+    if (top.perUnit && (!nonUnit.length || nonUnit[0].h < top.h * 0.6)) {
+      byWeight = true;
+      perKg = top.cents;
+    } else {
+      price = (nonUnit[0] || top).cents;
+      if (unit.length) perKg = unit[0].cents;
+    }
+    const others = uniq.filter((c) => !c.perUnit && c.cents !== price).slice(0, 3).map((c) => c.cents / 100);
+    return {
+      name, price: price != null ? price / 100 : null, price_per_kg: perKg != null ? perKg / 100 : null, sold_by_weight: byWeight,
+      promo, promo_kind: kind, promo_x: px, promo_y: py, promo_pct: pct, other_prices: others, readable: true,
+    };
+  }
+  // Big numbers in the full-size reading that did not come out as a whole price (for example "1º"
+  // when the cents are small and raised). Returns rectangles to read again, digits only.
+  function bigNumberRegions(passes, imgW, imgH) {
+    const PER_UNIT = /€\s*\/\s*\S{1,3}|\/\s*(kg|k9|kq|l|lt|un|uni)\b|\bpor\s*(kg|l|lt|litro|unid)|\bpre[çc]o\s*(por|\/)|\d\s*kg\s*=|\bkg\s*[:=]|\b1\s*kg\b/i;
+    const list = Array.isArray(passes) ? passes : [{ data: passes, scale: 1 }];
+    const p = list.find((x) => (x.scale || 1) === 1);
+    if (!p) return [];
+    const words = [];
+    for (const b of (p.data && p.data.blocks) || []) for (const pa of b.paragraphs || []) for (const l of pa.lines || []) {
+      const lineText = (l.words || []).map((w) => w.text).join(' ');
+      const line = (l.words || []).filter((w) => w && w.bbox && String(w.text || '').trim());
+      for (const w of line) words.push({ w, perUnit: PER_UNIT.test(lineText), line });
+    }
+    // Where the € sign after this word starts, on the same line: the box of the small cents must stop
+    // there. Read with digits only, a piece of "€" can come out as a digit ("2,49 €" read as 494).
+    const euroAfter = (w, line, h) => {
+      let x = null;
+      for (const o of line) {
+        if (o === w || o.bbox.x0 < w.bbox.x1 - 0.05 * h) continue;
+        const t = String(o.text).trim();
+        if (/\d/.test(t) || !/€|eur/i.test(t)) continue;
+        if (x == null || o.bbox.x0 < x) x = o.bbox.x0;
+      }
+      return x;
+    };
+    if (!words.length) return [];
+    const hs = words.map((x) => x.w.bbox.y1 - x.w.bbox.y0).sort((a, c) => a - c);
+    const med = hs[Math.floor(hs.length / 2)];
+    const maxH = hs[hs.length - 1];
+    const out = [];
+    const clamp = (r) => {
+      const left = Math.max(0, Math.round(r.left));
+      const top = Math.max(0, Math.round(r.top));
+      return { left, top, width: Math.max(1, Math.min(imgW - left, Math.round(r.width))), height: Math.max(1, Math.min(imgH - top, Math.round(r.height))) };
+    };
+    for (const { w, perUnit, line } of words) {
+      const t = String(w.text).trim();
+      const h = w.bbox.y1 - w.bbox.y0;
+      if (h < Math.max(med * 1.5, maxH * 0.6)) continue;
+      if (/\d\s*(g|gr|kg|ml|cl|l|lt)\b/i.test(t)) continue;
+      const m = t.match(/^[^\d]{0,2}(\d{1,3})/);
+      const full = /\d\s*[,.]\s*\d{2}/.test(t);
+      if (!m && (t.replace(/[^\p{L}\p{N}]/gu, '').length > 4)) continue;
+      const box = { x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 };
+      const euro = euroAfter(w, line, h);
+      const whole = full
+        ? clamp({ left: w.bbox.x0 - 0.05 * h, top: w.bbox.y0 - 0.05 * h, width: w.bbox.x1 - w.bbox.x0 + 0.15 * h, height: 1.1 * h })
+        : clamp({ left: w.bbox.x0 - 0.1 * h, top: w.bbox.y0 - 0.1 * h, width: w.bbox.x1 - w.bbox.x0 + 1.1 * h, height: 1.25 * h });
+      if (!m || full) { out.push({ euros: null, full, h, perUnit, whole, sup: null, box, euro }); continue; }
+      let digitsEnd = w.bbox.x0 + (w.bbox.x1 - w.bbox.x0) * Math.min(1, m[0].length / Math.max(1, t.length));
+      const sy = (w.symbols || []).filter((x) => /\d/.test(x.text));
+      if (sy.length >= m[1].length) digitsEnd = sy[m[1].length - 1].bbox.x1;
+      const left = digitsEnd - 0.15 * h;
+      let right = left + Math.max(0, w.bbox.x1 - digitsEnd) + 0.8 * h;
+      if (euro != null) right = Math.max(digitsEnd + 0.45 * h, Math.min(right, euro - 0.02 * h));
+      out.push({
+        euros: parseInt(m[1], 10), full: false, h, perUnit, whole, box, euro,
+        sup: clamp({ left, top: w.bbox.y0 - 0.08 * h, width: right - left, height: 0.65 * h }),
+      });
+    }
+    return out.sort((a, c) => c.h - a.h).slice(0, 2);
+  }
+  function supRegionAfter(reg, wholeText, imgW, imgH) {
+    if (!reg || reg.euros != null || reg.full) return null;
+    const t = String(wholeText || '').trim();
+    if (!/^\d{1,2}$/.test(t)) return null;
+    const n = t.length;
+    const b = reg.box;
+    const h = reg.h;
+    const width = b.x1 - b.x0;
+    const left = Math.max(0, Math.round(b.x0 + width * n / (n + 1) - 0.15 * h));
+    const top = Math.max(0, Math.round(b.y0 - 0.08 * h));
+    let w = Math.round(width / (n + 1) + 0.8 * h);
+    if (reg.euro != null) w = Math.max(Math.round(0.6 * h), Math.min(w, Math.round(reg.euro - 0.02 * h - left)));
+    return {
+      euros: parseInt(t, 10),
+      sup: { left, top, width: Math.max(1, Math.min(imgW - left, w)), height: Math.max(1, Math.min(imgH - top, Math.round(0.65 * h))) },
+    };
+  }
+  /* OCR-PARSE-END */
+
+  /* ---------- Product sheet ---------- */
+  const f = {
+    name: $('f-name'), price: $('f-price'), qty: $('f-qty'), kg: $('f-kg'),
+    sub: $('f-sub'), err: $('f-err'), save: $('f-save'), remove: $('f-remove'),
+  };
+  const sheet = {
+    open: false, editId: null, listId: null, itemMode: 'un', thumb: null, blob: null, dims: null, previewUrl: null, ai: null, promo: null,
+    promoType: null, touchedPrice: false, touchedPromo: false, chain: false, readToken: 0, prepToken: 0,
+  };
+
+  function openDialog(d) {
+    if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); } else d.setAttribute('open', '');
+  }
+  function closeDialog(d) {
+    if (typeof d.close === 'function') { if (d.open) d.close(); } else { d.removeAttribute('open'); d.dispatchEvent(new Event('close')); }
+  }
+  function resetSheet() {
+    if (readCtl) { try { readCtl.abort(); } catch (e) { /* ignore */ } readCtl = null; }
+    sheet.readToken++;
+    sheet.prepToken++;
+    if (sheet.previewUrl) URL.revokeObjectURL(sheet.previewUrl);
+    Object.assign(sheet, { editId: null, listId: null, thumb: null, blob: null, dims: null, previewUrl: null, ai: null, promo: null, touchedPrice: false, touchedPromo: false, chain: false });
+    f.name.value = '';
+    f.price.value = '';
+    f.qty.value = '1';
+    f.kg.value = '';
+    $('f-px').value = '3';
+    $('f-py').value = '2';
+    $('f-ppct').value = '50';
+    f.err.hidden = true;
+    $('discard').hidden = true;
+    sheet.initial = '';
+    $('photo-row').hidden = true;
+    $('photo-cta').hidden = false;
+    $('photo-img').removeAttribute('src');
+    setReadStatus(null);
+    $('chips').replaceChildren();
+    $('chips').hidden = true;
+    $('ref-note').hidden = true;
+    $('promo-note').hidden = true;
+    $('hist-note').hidden = true;
+    setPromoKind(null);
+    openPromo(false);
+    setItemMode('un');
+  }
+  function openSheet(opts) {
+    opts = opts || {};
+    resetSheet();
+    sheet.open = true;
+    const it = opts.editId ? state.cart.find((x) => x.id === opts.editId) : null;
+    sheet.editId = it ? it.id : null;
+    sheet.listId = opts.listId || null;
+    $('sheet-title').textContent = it ? 'Editar produto' : 'Novo produto';
+    f.save.textContent = it ? 'Guardar alterações' : 'Adicionar ao carrinho';
+    $('f-save-next').hidden = !!it;
+    f.remove.hidden = !it;
+    if (it) {
+      f.name.value = it.name;
+      setItemMode(it.mode);
+      f.price.value = centsToInput(it.priceCents);
+      f.qty.value = String(it.qty);
+      f.kg.value = it.mode === 'kg' ? gramsToInput(it.weightG) : '';
+      sheet.thumb = it.thumb;
+      sheet.promo = it.promo;
+      sheet.ai = it.aiCents != null ? { primary: it.aiCents, mode: it.aiMode, alts: it.aiAlt.slice() } : null;
+      sheet.touchedPrice = true;
+      sheet.touchedPromo = true;
+      $('photo-cta').hidden = true;
+      if (it.thumb) showPhoto(it.thumb);
+      if (it.promo) showPromo(it.promo, !!it.promoType);
+      if (it.promoType === 'leve') { $('f-px').value = String(it.promoX); $('f-py').value = String(it.promoY); }
+      else if (it.promoType) $('f-ppct').value = String(it.promoPct).replace('.', ',');
+      setPromoKind(it.promoType);
+      openPromo(!!it.promoType);
+    } else if (opts.name) {
+      f.name.value = opts.name;
+      // Last price as a starting point only for the same product, not for a merely similar name.
+      const m = matchProduct(opts.name);
+      if (m && m.kind !== 'weak') { setItemMode(m.p.last.mode); f.price.value = centsToInput(m.p.last.priceCents); }
+    }
+    refreshNames();
+    updateHistNote();
+    updateSubtotal();
+    sheet.initial = formSnapshot();
+    openDialog($('sheet'));
+    if (opts.focusPrice) setTimeout(() => f.price.focus(), 60);
+  }
+  function closeSheet() {
+    if (sheet.open) { sheet.open = false; resetSheet(); }
+    closeDialog($('sheet'));
+  }
+  function formSnapshot() {
+    return JSON.stringify([f.name.value.trim(), f.price.value.trim(), f.qty.value, f.kg.value.trim(), sheet.itemMode, sheet.promoType, $('f-px').value, $('f-py').value, $('f-ppct').value]);
+  }
+  // A photo taken or something typed and not saved yet.
+  function sheetDirty() {
+    if (!sheet.open) return false;
+    if (sheet.blob && !sheet.editId) return true;
+    return formSnapshot() !== sheet.initial;
+  }
+  function requestCloseSheet() {
+    if (!sheetDirty()) { closeSheet(); return; }
+    $('discard').hidden = false;
+    $('discard-keep').focus();
+  }
+  function showPhoto(src) {
+    if (src) $('photo-img').src = src;
+    $('photo-row').hidden = false;
+    $('photo-cta').hidden = true;
+  }
+  function showPromo(text, applied) {
+    const el = $('promo-note');
+    el.textContent = 'Promoção na etiqueta: «' + text + '». ' + (applied ? 'Já está nas contas; mude em Promoção se não se aplicar.' : 'Se se aplicar, escolha-a em Promoção.');
+    el.hidden = false;
+  }
+  function refreshNames() {
+    const seen = new Set();
+    const opts = [];
+    for (const l of state.list) if (!l.done && !seen.has(fold(l.name))) { seen.add(fold(l.name)); opts.push(l.name); }
+    for (const p of getBook().list.slice(0, 80)) if (!seen.has(p.key)) { seen.add(p.key); opts.push(p.name); }
+    $('list-names').replaceChildren(...opts.map((v) => h('option', { value: v })));
+  }
+  function setItemMode(mode) {
+    sheet.itemMode = mode === 'kg' ? 'kg' : 'un';
+    $('mode-un').setAttribute('aria-checked', String(sheet.itemMode === 'un'));
+    $('mode-kg').setAttribute('aria-checked', String(sheet.itemMode === 'kg'));
+    $('lbl-price').textContent = sheet.itemMode === 'kg' ? 'Preço por kg' : 'Preço por unidade';
+    $('qty-box').hidden = sheet.itemMode === 'kg';
+    $('kg-box').hidden = sheet.itemMode !== 'kg';
+    // "Leve X pague Y" and "2.ª unidade" count units, so they do not exist for things sold by weight.
+    const byUnit = (k) => k === 'leve' || k === 'segunda';
+    for (const b of $('promo-kinds').querySelectorAll('.chip')) b.hidden = sheet.itemMode === 'kg' && byUnit(b.dataset.kind);
+    if (sheet.itemMode === 'kg' && byUnit(sheet.promoType)) setPromoKind(null);
+    syncChips();
+    updateSubtotal();
+    updateHistNote();
+  }
+  function setPromoKind(kind) {
+    sheet.promoType = kind || null;
+    for (const b of $('promo-kinds').querySelectorAll('.chip')) b.setAttribute('aria-checked', String((b.dataset.kind || null) === sheet.promoType));
+    $('pf-leve').hidden = sheet.promoType !== 'leve';
+    $('pf-pct').hidden = !['segunda', 'pct', 'cartao'].includes(sheet.promoType);
+    $('lbl-ppct').textContent = sheet.promoType === 'segunda' ? 'Desconto na 2.ª unidade' : sheet.promoType === 'cartao' ? 'Vai para o cartão' : 'Desconto';
+    updateSubtotal();
+  }
+  function openPromo(on) {
+    $('promo-panel').hidden = !on;
+    $('promo-toggle').setAttribute('aria-expanded', String(on));
+    $('promo-toggle').textContent = on ? '− Promoção' : '+ Promoção';
+  }
+  function promoFromSheet() {
+    const t = sheet.promoType;
+    if (t === 'leve') return { promoType: 'leve', promoX: parseInt($('f-px').value, 10), promoY: parseInt($('f-py').value, 10), promoPct: null };
+    if (t) return { promoType: t, promoX: null, promoY: null, promoPct: parsePct($('f-ppct').value) };
+    return { promoType: null, promoX: null, promoY: null, promoPct: null };
+  }
+  function draftFromSheet() {
+    const priceCents = parseCents(f.price.value);
+    if (priceCents == null) return null;
+    let qty = parseInt(f.qty.value, 10);
+    qty = qty >= 1 ? Math.min(qty, 999) : 1;
+    let weightG = 1000;
+    if (sheet.itemMode === 'kg') {
+      weightG = parseGrams(f.kg.value);
+      if (weightG == null || weightG <= 0) return null;
+    }
+    return Object.assign({ mode: sheet.itemMode, priceCents, qty, weightG }, promoFromSheet());
+  }
+  function updateSubtotal() {
+    const d = draftFromSheet();
+    const note = $('f-sub-note');
+    if (!d) { f.sub.textContent = '—'; note.hidden = true; return; }
+    const c = promoCalc(d);
+    f.sub.textContent = eur(c.pay);
+    let text = '';
+    let cls = 'sub-note';
+    if (c.saved > 0) { text = 'Poupa ' + eur(c.saved) + ' com a promoção'; cls += ' ok'; }
+    else if (c.card > 0) text = 'Acumula ' + eur(c.card) + ' no cartão';
+    else if (d.promoType === 'leve' && d.mode === 'un' && d.promoX > d.promoY && d.qty < d.promoX) text = 'Leve ' + d.promoX + ' para ter a promoção';
+    else if (d.promoType === 'segunda' && d.mode === 'un' && d.qty < 2) text = 'Leve 2 para ter o desconto';
+    note.className = cls;
+    note.textContent = text;
+    note.hidden = !text;
+  }
+  function updateHistNote() {
+    const el = $('hist-note');
+    const name = f.name.value.trim();
+    const m = name ? matchProduct(name) : null;
+    if (!m) { el.hidden = true; return; }
+    const p = m.p;
+    const exact = m.kind === 'exact';
+    const last = p.last;
+    const unit = last.mode === 'kg' ? '/kg' : '';
+    const where = (last.store ? last.store + ', ' : '') + shortDate(last.ts);
+    const head = (exact ? 'Última vez: ' : 'Parecido com «' + p.name + '»: ') + eur(last.priceCents) + unit + ' (' + where + ').';
+    const kids = [h('span', { text: head })];
+    const cur = parseCents(f.price.value);
+    // "More expensive / cheaper" only against the same product: a similar name may be another size or brand.
+    if (exact && cur != null && last.mode === sheet.itemMode) {
+      const d = cur - last.priceCents;
+      if (d > 0) kids.push(h('strong', { class: 'warn', text: ' Está ' + eur(d) + ' mais caro.' }));
+      else if (d < 0) kids.push(h('strong', { class: 'ok', text: ' Está ' + eur(-d) + ' mais barato.' }));
+      else kids.push(h('strong', { text: ' Mesmo preço.' }));
+    }
+    if (exact && p.min && p.min.priceCents < last.priceCents) kids.push(h('span', { class: 'hn-min', text: ' O mais barato que já viu: ' + eur(p.min.priceCents) + unit + (p.min.store ? ' (' + p.min.store + ')' : '') + '.' }));
+    el.replaceChildren(...kids);
+    el.hidden = false;
+  }
+  function setReadStatus(kind, msg, retryTier, carefulLink) {
+    const box = $('read-status');
+    box.replaceChildren();
+    box.dataset.kind = kind || '';
+    if (!kind) { box.hidden = true; return; }
+    box.hidden = false;
+    box.append(h('p', null, kind === 'busy' ? h('span', { class: 'spin', 'aria-hidden': 'true' }) : null, msg));
+    if (retryTier) box.append(h('button', { type: 'button', class: 'linklike', onclick: () => startReading(retryTier) }, 'Tentar outra vez'));
+    if (carefulLink) box.append(h('button', { type: 'button', class: 'linklike', onclick: () => startReading('default') }, 'Não está certo? Ler com mais cuidado'));
+  }
+  function syncChips() {
+    const p = parseCents(f.price.value);
+    for (const b of $('chips').querySelectorAll('.chip')) {
+      b.setAttribute('aria-pressed', String(p != null && Number(b.dataset.cents) === p && b.dataset.mode === sheet.itemMode));
+    }
+  }
+  function renderChips(refPerKg) {
+    const box = $('chips');
+    box.replaceChildren();
+    const ai = sheet.ai;
+    const options = ai ? [{ c: ai.primary, mode: ai.mode, label: ai.mode === 'kg' ? 'por kg' : 'preço lido' }].concat(ai.alts.map((c) => ({ c, mode: 'un', label: 'outro valor' }))) : [];
+    for (const o of options) {
+      box.append(h('button', {
+        type: 'button', class: 'chip', 'data-cents': o.c, 'data-mode': o.mode, 'aria-pressed': 'false',
+        onclick: () => { setItemMode(o.mode); f.price.value = centsToInput(o.c); sheet.touchedPrice = true; syncChips(); updateSubtotal(); updateHistNote(); },
+      }, h('span', { class: 'num', text: eur(o.c) }), h('small', { text: o.label })));
+    }
+    box.hidden = options.length < 2;
+    const ref = $('ref-note');
+    if (refPerKg) {
+      ref.textContent = 'A etiqueta também mostra ' + eur(refPerKg) + ' por kg ou litro. É só referência, não é o preço a pagar.';
+      ref.hidden = false;
+    } else ref.hidden = true;
+    syncChips();
+  }
+  function centsFromAi(x) {
+    if (typeof x === 'number' && Number.isFinite(x) && x > 0 && x < 100000) return Math.round(x * 100);
+    if (typeof x === 'string') { const c = parseCents(x); return c != null && c > 0 && c < 10000000 ? c : null; }
+    return null;
+  }
+  function pctFromAi(x) {
+    const n = typeof x === 'number' ? x : typeof x === 'string' ? parsePct(x) : null;
+    return n != null && Number.isFinite(n) && n > 0 && n <= 100 ? Math.round(n * 10) / 10 : null;
+  }
+  function applyAiPromo(o, mode) {
+    if (sheet.touchedPromo) return false;
+    const kind = o.promo_kind;
+    const x = isInt(o.promo_x) ? o.promo_x : null;
+    const y = isInt(o.promo_y) ? o.promo_y : null;
+    const pct = pctFromAi(o.promo_pct);
+    if (kind === 'leve_pague' && mode === 'un' && x && y && x > y && y >= 1 && x <= 20) {
+      $('f-px').value = String(x);
+      $('f-py').value = String(y);
+      setPromoKind('leve');
+    } else if (kind === 'segunda_unidade' && mode === 'un' && pct) {
+      $('f-ppct').value = String(pct).replace('.', ',');
+      setPromoKind('segunda');
+    } else if (kind === 'desconto_imediato' && pct && pct < 100) {
+      $('f-ppct').value = String(pct).replace('.', ',');
+      setPromoKind('pct');
+    } else if (kind === 'desconto_cartao' && pct) {
+      $('f-ppct').value = String(pct).replace('.', ',');
+      setPromoKind('cartao');
+    } else return false;
+    openPromo(true);
+    return true;
+  }
+  function applyReading(r, tier) {
+    const o = r && typeof r === 'object' && !Array.isArray(r) ? r : {};
+    const price = centsFromAi(o.price);
+    const perKg = centsFromAi(o.price_per_kg);
+    const byWeight = o.sold_by_weight === true && perKg != null;
+    const name = typeof o.name === 'string' ? o.name.trim().slice(0, 60) : '';
+    const promo = typeof o.promo === 'string' && o.promo.trim() ? o.promo.trim().slice(0, 80) : null;
+    const others = Array.isArray(o.other_prices) ? o.other_prices.map(centsFromAi).filter((c) => c != null) : [];
+    if (o.readable === false || (!byWeight && price == null)) {
+      sheet.ai = null;
+      renderChips(null);
+      setReadStatus('error', READ_MSG.unreadable, null, tier === 'quick');
+      if (!sheet.touchedPrice) setTimeout(() => f.price.focus(), 50);
+      return;
+    }
+    const primary = byWeight ? perKg : price;
+    const mode = byWeight ? 'kg' : 'un';
+    const alts = [];
+    for (const c of others) if (c !== primary && !alts.includes(c)) alts.push(c);
+    sheet.ai = { primary, mode, alts: alts.slice(0, 4) };
+    sheet.promo = promo;
+    if (name && !f.name.value.trim()) f.name.value = name;
+    if (!sheet.touchedPrice) {
+      setItemMode(mode);
+      f.price.value = centsToInput(primary);
+      if (mode === 'kg' && !f.kg.value) setTimeout(() => f.kg.focus(), 50);
+    }
+    renderChips(perKg && !byWeight ? perKg : null);
+    const applied = applyAiPromo(o, mode);
+    if (promo) showPromo(promo, applied || !!sheet.promoType); else $('promo-note').hidden = true;
+    const okMsg = mode === 'kg' ? 'Vendido ao peso. Escreva o peso.' : tier === 'ocr' ? 'Lido no telemóvel. Confirme o preço ou toque noutro valor.' : 'Preço lido. Confirme ou toque noutro valor.';
+    setReadStatus('ok', okMsg, null, tier === 'quick');
+    updateSubtotal();
+    updateHistNote();
+  }
+  function onReadError(e, tier) {
+    const code = e && e.code;
+    if (code === 'cancelled') { setReadStatus(null); return; }
+    const msg = READ_MSG[code] || READ_MSG.failed;
+    setReadStatus('error', msg, code === 'image_rejected' || code === 'refused' ? null : tier);
+  }
+  async function startReading(tier) {
+    if (!sheet.blob) return;
+    const token = ++sheet.readToken;
+    if (readCtl) { try { readCtl.abort(); } catch (e) { /* ignore */ } readCtl = null; }
+    setReadStatus('busy', tier === 'default' ? 'A ler com mais cuidado. Pode demorar até um minuto…' : 'A ler a etiqueta…');
+    const useAi = tier !== 'ocr' && !aiOff && await canReadImages();
+    if (token !== sheet.readToken || !sheet.open) return;
+    if (!useAi) {
+      if (!aiOff && tier !== 'ocr') aiOff = 'unavailable';
+      ocrReading(token, tier === 'ocr');
+      return;
+    }
+    const sample = await getSample();
+    const ctl = new AbortController();
+    readCtl = ctl;
+    try {
+      const r = await sample.json(READ_PROMPT, { images: [sheet.blob], modelTier: tier, signal: ctl.signal });
+      if (token !== sheet.readToken || !sheet.open) return;
+      applyReading(r, tier);
+    } catch (e) {
+      if (token !== sheet.readToken || !sheet.open) return;
+      const code = e && e.code;
+      if (PERMANENT.has(code)) { aiOff = code; ocrReading(token); return; }
+      onReadError(e, tier);
+    } finally {
+      if (readCtl === ctl) readCtl = null;
+    }
+  }
+
+  /* ---------- Reading on the phone itself: free, no account needed ---------- */
+  // The reading engine (Tesseract 5.1.1) comes from jsDelivr, pinned to one version; its first file
+  // is checked by its fingerprint. Inside Claude a page may not download files from other sites while
+  // it runs, so the engine usually cannot start there: that is checked first, in a moment, instead of
+  // leaving the person waiting.
+  const OCR_CDN = {
+    lib: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+    sri: 'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F',
+    worker: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+    core: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    lang: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/por@1.0.0/4.0.0_best_int',
+  };
+  const OCR_IDLE_MS = 5 * 60000;
+  let ocrWorkerP = null;
+  let ocrWorker = null;
+  let ocrGen = 0;
+  let ocrReady = false;
+  let ocrPausedUntil = 0;
+  let ocrNoWasm = null;
+  let ocrNetOk = false;
+  let ocrChain = Promise.resolve();
+  let ocrProgress = null;
+  let ocrIdle = null;
+  function loadScript(src, integrity) {
+    return new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src;
+      el.async = true;
+      if (integrity) { el.integrity = integrity; el.crossOrigin = 'anonymous'; }
+      el.onload = () => resolve();
+      el.onerror = () => { el.remove(); reject(new Error('script')); };
+      document.head.appendChild(el);
+    });
+  }
+  function withTimeout(p, ms) {
+    let timer = null;
+    const limit = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('timeout')), ms); });
+    return Promise.race([p, limit]).finally(() => clearTimeout(timer));
+  }
+  // The engine needs WebAssembly, and some pages are not allowed to run it: then say so at once.
+  function wasmAllowed() {
+    if (ocrNoWasm === null) {
+      try { ocrNoWasm = !(typeof WebAssembly === 'object' && new WebAssembly.Module(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]))); } catch (e) { ocrNoWasm = true; }
+    }
+    return !ocrNoWasm;
+  }
+  // The engine also downloads its Portuguese file (1,4 MB). Asking only for its size answers at once
+  // whether downloads from jsDelivr are allowed here; refused, the engine would wait for ever.
+  async function ocrReachable() {
+    if (ocrNetOk) return true;
+    if (typeof fetch !== 'function') return false;
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 8000);
+    try {
+      const r = await fetch(OCR_CDN.lang + '/por.traineddata.gz', { method: 'HEAD', cache: 'no-store', credentials: 'omit', signal: ctl ? ctl.signal : undefined });
+      ocrNetOk = !!(r && r.ok);
+    } catch (e) {
+      ocrNetOk = false;
+    } finally {
+      clearTimeout(timer);
+    }
+    return ocrNetOk;
+  }
+  function resetOcrWorker() {
+    ocrGen++;
+    clearTimeout(ocrIdle);
+    const w = ocrWorker;
+    ocrWorker = null;
+    ocrWorkerP = null;
+    ocrReady = false;
+    ocrChain = Promise.resolve();
+    if (w) { try { w.terminate(); } catch (e) { /* ignore */ } }
+  }
+  function getOcrWorker() {
+    if (!ocrWorkerP) {
+      const gen = ocrGen;
+      const p = (async () => {
+        if (!window.Tesseract) await loadScript(OCR_CDN.lib, OCR_CDN.sri);
+        if (!window.Tesseract || typeof window.Tesseract.createWorker !== 'function') throw new Error('ocr');
+        const opts = {
+          workerPath: OCR_CDN.worker, corePath: OCR_CDN.core, langPath: OCR_CDN.lang,
+          logger: (m) => { if (ocrProgress) ocrProgress(m); }, errorHandler: () => {},
+        };
+        const w = await window.Tesseract.createWorker('por', 1, opts);
+        if (gen !== ocrGen) { try { w.terminate(); } catch (e) { /* ignore */ } throw new Error('stale'); }
+        ocrWorker = w;
+        ocrReady = true;
+        return w;
+      })();
+      ocrWorkerP = p;
+      p.catch(() => { if (ocrWorkerP === p) ocrWorkerP = null; });
+    }
+    return ocrWorkerP;
+  }
+  async function runOcr(worker, blob, dims) {
+    const passes = [];
+    const extras = [];
+    let res = null;
+    try {
+      for (const psm of ['11', '6', '3']) {
+        await worker.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: '' });
+        const r = await worker.recognize(blob, {}, { blocks: true, text: true });
+        const pass = { data: r.data, scale: 1 };
+        passes.push(pass);
+        const regions = dims ? bigNumberRegions([pass], dims.w, dims.h) : [];
+        if (regions.length) {
+          await worker.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789,.' });
+          for (const reg of regions) {
+            let wholeText = '';
+            for (const kind of ['whole', 'sup']) {
+              if (!reg[kind]) continue;
+              const rr = await worker.recognize(blob, { rectangle: reg[kind] }, { text: true });
+              if (kind === 'whole') wholeText = rr.data.text;
+              extras.push({ kind, text: rr.data.text, euros: reg.euros, h: reg.h, perUnit: reg.perUnit, full: reg.full });
+            }
+            const more = supRegionAfter(reg, wholeText, dims.w, dims.h);
+            if (more) {
+              const rr = await worker.recognize(blob, { rectangle: more.sup }, { text: true });
+              extras.push({ kind: 'sup', text: rr.data.text, euros: more.euros, h: reg.h, perUnit: reg.perUnit, full: false });
+            }
+          }
+        }
+        res = parseTagOcr(passes, extras);
+        if (res.readable) break;
+      }
+    } finally {
+      await worker.setParameters({ tessedit_pageseg_mode: '11', tessedit_char_whitelist: '' });
+    }
+    return res;
+  }
+  // The engine uses a lot of memory: let it go after five minutes without a reading.
+  function idleOcrSoon() {
+    clearTimeout(ocrIdle);
+    ocrIdle = setTimeout(() => { if (ocrWorker) resetOcrWorker(); }, OCR_IDLE_MS);
+  }
+  async function ocrReading(token, manual) {
+    const giveUp = (retry) => {
+      setReadStatus('off', READ_MSG.unavailable, retry ? 'ocr' : null);
+      if (aiOff === 'not_granted') $('read-status').append(h('button', { type: 'button', class: 'linklike', onclick: fixPermission }, 'Usar a leitura do Claude'));
+      if (!sheet.touchedPrice) setTimeout(() => f.price.focus(), 50);
+    };
+    if (!wasmAllowed()) { giveUp(false); return; }
+    // After a failed start, new photos do not wait for the engine again for two minutes ("Tentar outra vez" does).
+    if (!manual && Date.now() < ocrPausedUntil) { giveUp(true); return; }
+    const first = 'A preparar a leitura no telemóvel (só da primeira vez)…';
+    setReadStatus('busy', ocrReady ? 'A ler a etiqueta…' : first);
+    if (!ocrReady && !(await ocrReachable())) {
+      ocrPausedUntil = Date.now() + 120000;
+      if (token === sheet.readToken && sheet.open) giveUp(true);
+      return;
+    }
+    if (token !== sheet.readToken || !sheet.open) return;
+    ocrProgress = (m) => {
+      if (ocrReady || token !== sheet.readToken || !sheet.open || !m) return;
+      if (/traineddata/.test(m.status || '') && typeof m.progress === 'number' && m.progress > 0 && m.progress < 1) setReadStatus('busy', first + ' ' + Math.round(m.progress * 100) + '%');
+    };
+    clearTimeout(ocrIdle);
+    let worker = null;
+    try {
+      worker = await withTimeout(getOcrWorker(), 90000);
+    } catch (e) {
+      resetOcrWorker();
+      ocrPausedUntil = Date.now() + 120000;
+      if (token === sheet.readToken && sheet.open) giveUp(true);
+      return;
+    }
+    try {
+      if (token !== sheet.readToken || !sheet.open) return;
+      setReadStatus('busy', 'A ler a etiqueta…');
+      const blob = sheet.blob;
+      const dims = sheet.dims;
+      const job = ocrChain.then(() => runOcr(worker, blob, dims));
+      ocrChain = job.catch(() => {});
+      let r = null;
+      try {
+        r = await withTimeout(job, 60000);
+      } catch (e) {
+        // A reading that hangs leaves the engine stuck: start it fresh next time.
+        if (e && e.message === 'timeout') resetOcrWorker();
+        if (token === sheet.readToken && sheet.open) setReadStatus('error', READ_MSG.ocr_failed, 'ocr');
+        return;
+      }
+      ocrPausedUntil = 0;
+      if (token !== sheet.readToken || !sheet.open) return;
+      applyReading(r, 'ocr');
+      if (aiOff === 'not_granted') $('read-status').append(h('button', { type: 'button', class: 'linklike', onclick: fixPermission }, 'Usar a leitura do Claude, que acerta mais'));
+    } finally {
+      idleOcrSoon();
+    }
+  }
+  /* ---------- Opening the camera, with help when it cannot open here ---------- */
+  let cameraBroken = false;
+  try { cameraBroken = localStorage.getItem(LS_NOCAM) === navigator.userAgent; } catch (e) { cameraBroken = false; }
+  function setCameraBroken(v) {
+    cameraBroken = v;
+    try { if (v) localStorage.setItem(LS_NOCAM, navigator.userAgent); else localStorage.removeItem(LS_NOCAM); } catch (e) { /* ignore */ }
+  }
+  function showNoCamera() {
+    $('nocam-note').hidden = true;
+    $('nc-sync').hidden = !cloud.on;
+    $('nocam-copy').textContent = 'Copiar link';
+    openDialog($('nocam'));
+  }
+  function hideNoCamera() { closeDialog($('nocam')); }
+  // Only the Claude app for Android is known to ignore the camera button. There, when the camera does
+  // not open within a few seconds, the app explains how to open this page in Chrome.
+  const CAMERA_WATCH = IN_CLAUDE && /Android/i.test(navigator.userAgent || '');
+  let pickWatch = null;
+  function disarmPickWatch() {
+    const w = pickWatch;
+    if (!w) return;
+    pickWatch = null;
+    clearTimeout(w.timer);
+    window.removeEventListener('blur', w.onOpen);
+    document.removeEventListener('visibilitychange', w.onVis);
+    w.input.removeEventListener('change', w.onOpen);
+    w.input.removeEventListener('cancel', w.onOpen);
+  }
+  function pickPhoto(inputId) {
+    const input = $(inputId);
+    input.value = '';
+    disarmPickWatch();
+    if (!CAMERA_WATCH) { try { input.click(); } catch (e) { /* ignore */ } return; }
+    const w = { input, timer: 0 };
+    w.onOpen = () => {
+      if (pickWatch !== w) return;
+      disarmPickWatch();
+      if (cameraBroken) setCameraBroken(false);
+      hideNoCamera();
+    };
+    w.onVis = () => { if (document.visibilityState === 'hidden') w.onOpen(); };
+    window.addEventListener('blur', w.onOpen);
+    document.addEventListener('visibilitychange', w.onVis);
+    input.addEventListener('change', w.onOpen);
+    input.addEventListener('cancel', w.onOpen);
+    pickWatch = w;
+    if (cameraBroken) {
+      showNoCamera();
+      w.timer = setTimeout(() => { if (pickWatch === w) disarmPickWatch(); }, 4000);
+    } else {
+      w.timer = setTimeout(() => { if (pickWatch === w) { disarmPickWatch(); setCameraBroken(true); showNoCamera(); } }, 3500);
+    }
+    try { input.click(); } catch (e) { /* ignore */ }
+  }
+  function copyAppLink() {
+    const field = $('nocam-url');
+    const btn = $('nocam-copy');
+    const fallback = () => {
+      field.focus();
+      field.select();
+      try { field.setSelectionRange(0, field.value.length); } catch (e) { /* ignore */ }
+      $('nocam-note').hidden = false;
+    };
+    try {
+      navigator.clipboard.writeText(APP_URL).then(() => { btn.textContent = 'Link copiado. Agora abra o Chrome e cole'; }, fallback);
+    } catch (e) { fallback(); }
+  }
+  async function onFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    hideNoCamera();
+    if (!sheet.open) openSheet({});
+    const token = ++sheet.prepToken;
+    showPhoto(null);
+    setReadStatus('busy', 'A preparar a foto…');
+    const p = await prepPhoto(file);
+    e.target.value = '';
+    if (token !== sheet.prepToken || !sheet.open) return;
+    if (!p.blob) {
+      setReadStatus('error', READ_MSG.bad_photo);
+      if (!sheet.touchedPrice) setTimeout(() => f.price.focus(), 50);
+      return;
+    }
+    sheet.blob = p.blob;
+    sheet.dims = p.w ? { w: p.w, h: p.h } : null;
+    sheet.thumb = p.thumb;
+    if (sheet.previewUrl) URL.revokeObjectURL(sheet.previewUrl);
+    sheet.previewUrl = URL.createObjectURL(p.blob);
+    showPhoto(sheet.previewUrl);
+    startReading('quick');
+  }
+  function srcFor(it) {
+    if (it.aiCents == null) return 'manual';
+    if (it.priceCents === it.aiCents && it.mode === it.aiMode) return 'ia';
+    if (it.aiAlt.includes(it.priceCents)) return 'ia-alt';
+    return 'mao';
+  }
+  function formError(msg, el) {
+    f.err.textContent = msg;
+    f.err.hidden = false;
+    if (el.closest('#promo-panel')) openPromo(true);
+    el.focus();
+  }
+  function onSave(e) {
+    e.preventDefault();
+    const chain = sheet.chain;
+    sheet.chain = false;
+    f.err.hidden = true;
+    const priceCents = parseCents(f.price.value);
+    if (priceCents == null || priceCents <= 0) return formError('Escreva o preço, por exemplo 1,99.', f.price);
+    if (priceCents > MAX_PRICE) return formError('Esse preço parece alto demais. Confirme o valor.', f.price);
+    let qty = parseInt(f.qty.value, 10);
+    qty = qty >= 1 ? Math.min(qty, 999) : 1;
+    let weightG = 1000;
+    if (sheet.itemMode === 'kg') {
+      weightG = parseGrams(f.kg.value);
+      if (weightG == null || weightG <= 0) return formError('Escreva o peso em kg, por exemplo 0,750.', f.kg);
+      if (weightG > 100000) return formError('Esse peso parece alto demais.', f.kg);
+    }
+    let pr = promoFromSheet();
+    // By weight there are no unit promotions: drop them before checking their fields.
+    if (sheet.itemMode === 'kg' && (pr.promoType === 'leve' || pr.promoType === 'segunda')) pr = { promoType: null, promoX: null, promoY: null, promoPct: null };
+    if (pr.promoType === 'leve' && !(pr.promoX >= 2 && pr.promoX <= 20 && pr.promoY >= 1 && pr.promoY < pr.promoX)) {
+      return formError('Na promoção, "leve" tem de ser maior que "pague", por exemplo leve 3, pague 2.', $('f-px'));
+    }
+    if (['segunda', 'cartao'].includes(pr.promoType) && !(pr.promoPct > 0 && pr.promoPct <= 100)) return formError('Escreva a percentagem da promoção, por exemplo 50.', $('f-ppct'));
+    if (pr.promoType === 'pct' && !(pr.promoPct > 0 && pr.promoPct < 100)) return formError('Escreva a percentagem de desconto, por exemplo 20.', $('f-ppct'));
+    const name = cleanText(f.name.value, 60);
+    let it = sheet.editId ? state.cart.find((x) => x.id === sheet.editId) : null;
+    const wasEdit = !!it;
+    if (it) {
+      Object.assign(it, cleanItem(Object.assign({}, it, { name, mode: sheet.itemMode, priceCents, qty, weightG, promo: sheet.promo }, pr)));
+      it.src = srcFor(it);
+    } else {
+      const ai = sheet.ai;
+      it = cleanItem(Object.assign({
+        id: uid(), name, mode: sheet.itemMode, priceCents, qty, weightG, thumb: sheet.thumb,
+        aiCents: ai ? ai.primary : null, aiMode: ai ? ai.mode : 'un', aiAlt: ai ? ai.alts : [],
+        promo: sheet.promo, addedAt: Date.now(),
+      }, pr));
+      it.src = srcFor(it);
+      let li = sheet.listId ? state.list.find((l) => l.id === sheet.listId) : null;
+      if (!li && name) li = state.list.find((l) => !l.done && fold(l.name) === fold(name));
+      if (li) { li.done = true; li.cartItemId = it.id; it.listId = li.id; }
+      if (!state.cart.length && (!state.cartStartedAt || Date.now() - state.cartStartedAt > 6 * 3600e3)) state.cartStartedAt = Date.now();
+      state.cart.push(it);
+    }
+    commit();
+    closeSheet();
+    buzz();
+    if (chain && !wasEdit) pickPhoto('in-camera');
+    showToast((wasEdit ? 'Atualizado: ' : 'No carrinho: ') + (it.name || 'Produto') + ' · ' + eur(lineCents(it)));
+  }
+
+  /* ---------- Cart actions ---------- */
+  function changeQty(id, d) {
+    const it = state.cart.find((x) => x.id === id);
+    if (!it) return;
+    if (d < 0 && it.qty <= 1) { removeItem(id); return; }
+    it.qty = Math.max(1, Math.min(999, it.qty + d));
+    commit();
+  }
+  function removeItem(id) {
+    const idx = state.cart.findIndex((x) => x.id === id);
+    if (idx < 0) return;
+    const [it] = state.cart.splice(idx, 1);
+    const li = it.listId ? state.list.find((l) => l.id === it.listId && l.cartItemId === it.id) : null;
+    if (li) { li.done = false; li.cartItemId = null; }
+    commit();
+    showToast('Removido: ' + (it.name || 'Produto'), () => {
+      if (state.cart.some((x) => x.id === it.id)) return;
+      state.cart.splice(Math.min(idx, state.cart.length), 0, it);
+      // The list may have been refreshed from the account in the meantime: find the item by its id.
+      const back = li ? state.list.find((l) => l.id === li.id) : null;
+      if (back) { back.done = true; back.cartItemId = it.id; }
+      commit();
+    });
+  }
+
+  /* ---------- Budget ---------- */
+  function openBudget() {
+    $('budget-form').hidden = false;
+    $('budget-edit').hidden = true;
+    $('f-budget').value = state.budgetCents ? centsToInput(state.budgetCents) : '';
+    $('budget-clear').hidden = !state.budgetCents;
+    $('f-budget').focus();
+  }
+  function closeBudget() {
+    $('budget-form').hidden = true;
+    $('budget-edit').hidden = false;
+  }
+  function renderBudget(total) {
+    const b = state.budgetCents;
+    const box = $('budget');
+    $('budget-edit').textContent = b ? 'Mudar' : 'Definir orçamento';
+    if (!b) {
+      box.dataset.state = 'none';
+      $('budget-label').textContent = 'Sem orçamento';
+      $('budget-bar').hidden = true;
+      $('budget-text').hidden = true;
+      return;
+    }
+    $('budget-label').replaceChildren('Orçamento ', h('span', { class: 'num', text: eur(b) }));
+    $('budget-bar').hidden = false;
+    $('budget-text').hidden = false;
+    $('budget-fill').style.width = Math.min(100, Math.round(total / b * 100)) + '%';
+    if (total <= b) {
+      box.dataset.state = total >= b * 0.9 ? 'near' : 'ok';
+      $('budget-text').textContent = 'Faltam ' + eur(b - total);
+    } else {
+      box.dataset.state = 'over';
+      $('budget-text').textContent = 'Passou ' + eur(total - b) + ' do orçamento';
+    }
+  }
+
+  /* ---------- Home list ---------- */
+  const LIST_FULL = 'A lista já tem ' + MAX_LIST + ' itens. Apague os riscados ou os que já não precisa.';
+  // Returns how many names were given and how many were really added (the others were already there).
+  function addListItems(text) {
+    const names = String(text).split(/[,;\n]+/).map((s) => cleanText(s, 60)).filter(Boolean).slice(0, 40);
+    const res = { given: names.length, added: 0, full: false };
+    if (!names.length) return res;
+    const have = new Set(state.list.filter((l) => !l.done).map((l) => fold(l.name)));
+    for (const name of names) {
+      const k = fold(name);
+      if (have.has(k)) continue;
+      if (state.list.length >= MAX_LIST) { res.full = true; break; }
+      have.add(k);
+      state.list.push({ id: uid(), name, done: false, cartItemId: null });
+      res.added++;
+    }
+    if (res.added) commit();
+    return res;
+  }
+  function addNameToList(name) {
+    if (state.list.some((l) => !l.done && fold(l.name) === fold(name))) { showToast('Já está na lista.'); return; }
+    if (state.list.length >= MAX_LIST) { showToast(LIST_FULL); return; }
+    state.list.push({ id: uid(), name: cleanText(name, 60), done: false, cartItemId: null });
+    commit();
+    showToast('Na lista: ' + name);
+  }
+  function unlinkCartItem(cartItemId) {
+    const it = cartItemId ? state.cart.find((x) => x.id === cartItemId) : null;
+    if (it) it.listId = null;
+  }
+  function toggleList(id) {
+    const li = state.list.find((l) => l.id === id);
+    if (!li) return;
+    li.done = !li.done;
+    if (!li.done && li.cartItemId) { unlinkCartItem(li.cartItemId); li.cartItemId = null; }
+    commit();
+  }
+  function deleteListItem(id) {
+    const idx = state.list.findIndex((l) => l.id === id);
+    if (idx < 0) return;
+    const [li] = state.list.splice(idx, 1);
+    unlinkCartItem(li.cartItemId);
+    commit();
+    showToast('Apagado da lista: ' + li.name, () => {
+      if (state.list.some((l) => l.id === li.id)) return;
+      state.list.splice(Math.min(idx, state.list.length), 0, li);
+      const it = li.cartItemId ? state.cart.find((x) => x.id === li.cartItemId) : null;
+      if (it) it.listId = li.id; else li.cartItemId = null;
+      commit();
+    });
+  }
+  function clearDoneList() {
+    const removed = state.list.filter((l) => l.done);
+    if (!removed.length) return;
+    state.list = state.list.filter((l) => !l.done);
+    for (const li of removed) unlinkCartItem(li.cartItemId);
+    commit();
+    showToast(plural(removed.length, 'item apagado', 'itens apagados'));
+  }
+  function addFromList(id) {
+    const li = state.list.find((l) => l.id === id);
+    if (!li) return;
+    if (li.cartItemId && state.cart.some((x) => x.id === li.cartItemId)) { openSheet({ editId: li.cartItemId }); return; }
+    openSheet({ listId: li.id, name: li.name });
+  }
+  function listText() {
+    const pending = state.list.filter((l) => !l.done);
+    if (!pending.length) return '';
+    let sum = 0;
+    let known = 0;
+    const lines = pending.map((l) => {
+      const est = estimateFor(l.name);
+      if (est != null) { sum += est; known++; }
+      return '• ' + l.name + (est != null ? ' (~' + eur(est) + ')' : '');
+    });
+    return 'Lista de compras\n' + lines.join('\n') + (known ? '\nEstimativa: ~' + eur(sum) : '');
+  }
+  async function copyList() {
+    const text = listText();
+    if (!text) { showToast('A lista está vazia.'); return; }
+    const area = $('copy-area');
+    try {
+      await navigator.clipboard.writeText(text);
+      area.hidden = true;
+      showToast('Lista copiada. Cole no WhatsApp ou onde quiser.');
+    } catch (e) {
+      area.value = text;
+      area.hidden = false;
+      area.focus();
+      area.select();
+      showToast('Texto selecionado. Use Copiar no menu do telemóvel.');
+    }
+  }
+
+  /* ---------- Finish a trip ---------- */
+  let finStore = '';
+  function openFinish() {
+    if (!state.cart.length) return;
+    finStore = state.lastStore && STORES.includes(state.lastStore) ? state.lastStore : '';
+    const s = sums(state.cart);
+    $('fin-total').textContent = eur(s.pay);
+    $('fin-count').textContent = plural(unitsOf(state.cart), 'artigo', 'artigos') + (s.saved ? ' · poupou ' + eur(s.saved) : '');
+    $('fin-receipt').value = '';
+    $('fin-other').value = state.lastStore && !STORES.includes(state.lastStore) ? state.lastStore : '';
+    if ($('fin-other').value) finStore = 'Outro';
+    $('fin-other').hidden = finStore !== 'Outro';
+    $('fin-diff').hidden = true;
+    const box = $('store-chips');
+    box.replaceChildren();
+    for (const name of STORES.concat(['Outro'])) {
+      box.append(h('button', { type: 'button', class: 'chip', 'data-store': name, 'aria-pressed': String(name === finStore), onclick: () => pickStore(name) }, name));
+    }
+    openDialog($('finish'));
+  }
+  function pickStore(name) {
+    finStore = finStore === name ? '' : name;
+    for (const b of $('store-chips').querySelectorAll('.chip')) b.setAttribute('aria-pressed', String(b.dataset.store === finStore));
+    $('fin-other').hidden = finStore !== 'Outro';
+    if (finStore === 'Outro') $('fin-other').focus();
+  }
+  function updateFinDiff() {
+    const rc = parseCents($('fin-receipt').value);
+    const el = $('fin-diff');
+    if (rc == null) { el.hidden = true; return; }
+    const d = rc - totalOf(state.cart);
+    el.hidden = false;
+    el.textContent = d === 0 ? 'A app acertou ao cêntimo.' : 'Diferença: ' + eur(Math.abs(d)) + (d > 0 ? ' (o talão foi mais caro)' : ' (o talão foi mais barato)');
+  }
+  function onFinish(e) {
+    e.preventDefault();
+    if (!state.cart.length) { closeDialog($('finish')); return; }
+    const store = finStore === 'Outro' ? cleanText($('fin-other').value, 40) : finStore;
+    const rc = parseCents($('fin-receipt').value);
+    const s = sums(state.cart);
+    const trip = {
+      id: uid(), ts: Date.now(), store, totalCents: s.pay, savedCents: s.saved, cardCents: s.card,
+      receiptCents: rc != null && rc >= 0 && rc <= MAX_MONEY ? rc : null,
+      durationMin: state.cartStartedAt ? Math.max(1, Math.min(1439, Math.round((Date.now() - state.cartStartedAt) / 60000))) : null,
+      items: state.cart.map((i) => Object.assign({}, i)), photosPurged: false,
+    };
+    state.trips.unshift(trip);
+    archiveOverflow();
+    state.cart = [];
+    state.cartStartedAt = null;
+    if (store) state.lastStore = store;
+    state.list = state.list.filter((l) => !l.done);
+    openTrips.clear();
+    openTrips.add(trip.id);
+    commit();
+    closeDialog($('finish'));
+    setTab('historico');
+    showToast('Compra guardada no histórico.');
+  }
+
+  /* ---------- History ---------- */
+  const openTrips = new Set();
+  const receiptEditing = new Set();
+  const armed = new Map();
+  let pendingFocus = null;
+  function readStats(trips) {
+    let reads = 0;
+    let right = 0;
+    for (const t of trips) for (const i of t.items) if (i.aiCents != null) { reads++; if (i.src === 'ia') right++; }
+    return { reads, right };
+  }
+  // First tap arms the button for 4 seconds; the second tap deletes, with "Desfazer" in the message.
+  // The label comes from `armed`, so it stays right when the history is drawn again in between.
+  function deleteTrip(id) {
+    if (!armed.has(id)) {
+      armed.set(id, setTimeout(() => {
+        armed.delete(id);
+        const el = document.activeElement;
+        if (el && el.id === 'del-' + id) pendingFocus = el.id;
+        if (tab === 'historico') renderHistory();
+      }, 4000));
+      pendingFocus = 'del-' + id;
+      renderHistory();
+      return;
+    }
+    clearTimeout(armed.get(id));
+    armed.delete(id);
+    const idx = state.trips.findIndex((t) => t.id === id);
+    if (idx < 0) return;
+    const [t] = state.trips.splice(idx, 1);
+    openTrips.delete(id);
+    commit();
+    showToast('Compra apagada.', () => {
+      if (state.trips.some((x) => x.id === t.id)) return;
+      state.trips.push(t);
+      state.trips.sort(byNewest);
+      openTrips.add(t.id);
+      commit();
+    });
+  }
+  function repeatTrip(id) {
+    const t = state.trips.find((x) => x.id === id);
+    if (!t) return;
+    const have = new Set(state.list.filter((l) => !l.done).map((l) => fold(l.name)));
+    let n = 0;
+    let full = false;
+    for (const i of t.items) {
+      if (!i.name) continue;
+      const k = fold(i.name);
+      if (have.has(k)) continue;
+      if (state.list.length >= MAX_LIST) { full = true; break; }
+      have.add(k);
+      state.list.push({ id: uid(), name: i.name, done: false, cartItemId: null });
+      n++;
+    }
+    if (!n) { showToast(full ? LIST_FULL : 'Esses produtos já estão na lista.'); return; }
+    commit();
+    setTab('lista');
+    showToast(n === 1 ? '1 produto posto na lista.' : n + ' produtos postos na lista.');
+  }
+  function diffSpan(t) {
+    const d = t.receiptCents - t.totalCents;
+    const text = ' · talão ' + eur(t.receiptCents) + (d === 0 ? ' (igual)' : ' (' + (d > 0 ? '+' : '−') + eur(Math.abs(d)) + ')');
+    return h('span', { class: Math.abs(d) <= 100 ? 'ok' : 'warn', text });
+  }
+  function staticLine(i) {
+    const badge = promoBadge(i);
+    return h('li', { class: 'line static' },
+      i.thumb ? h('img', { class: 'thumb', src: i.thumb, alt: '' }) : h('span', { class: 'thumb ph', 'aria-hidden': 'true', text: initial(i.name) }),
+      h('span', { class: 'line-text' },
+        h('span', { class: 'line-name', text: i.name || 'Produto sem nome' }),
+        h('span', { class: 'line-calc num' }, badge ? h('span', { class: 'badge', text: badge }) : null, calcText(i))),
+      h('span', { class: 'line-total num', text: eur(lineCents(i)) }));
+  }
+  function receiptForm(t) {
+    const input = h('input', { id: 'rc-' + t.id, type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0,00', value: t.receiptCents != null ? centsToInput(t.receiptCents) : '' });
+    const form = h('form', { class: 'inline-form', novalidate: true },
+      h('div', { class: 'money' }, h('label', { class: 'vh', for: 'rc-' + t.id, text: 'Valor do talão' }), input, h('span', { text: '€' })),
+      h('button', { type: 'submit', class: 'btn primary' }, 'OK'),
+      h('button', { type: 'button', class: 'btn ghost', onclick: () => { receiptEditing.delete(t.id); renderHistory(); } }, 'Cancelar'));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = input.value.trim();
+      const c = parseCents(v);
+      if (v && (c == null || c > MAX_MONEY)) { input.focus(); return; }
+      // The purchase may have been refreshed from the account while the form was open.
+      const cur = state.trips.find((x) => x.id === t.id);
+      receiptEditing.delete(t.id);
+      if (!cur) { renderHistory(); return; }
+      cur.receiptCents = v ? c : null;
+      commit();
+      showToast(v ? 'Talão guardado.' : 'Talão apagado.');
+    });
+    return form;
+  }
+  function tripCard(t) {
+    const open = openTrips.has(t.id);
+    const when = new Date(t.ts);
+    let meta = plural(unitsOf(t.items), 'artigo', 'artigos') + ' · ' + timeFmt.format(when);
+    if (t.durationMin) meta += ' · ' + t.durationMin + ' min';
+    if (t.savedCents) meta += ' · poupou ' + eur(t.savedCents);
+    const head = h('button', {
+      type: 'button', class: 'trip-head', 'aria-expanded': String(open),
+      onclick: () => { if (openTrips.has(t.id)) openTrips.delete(t.id); else openTrips.add(t.id); renderHistory(); },
+    },
+    h('span', { class: 'trip-when', text: cap(dateFmt.format(when)) + (t.store ? ' · ' + t.store : '') }),
+    h('span', { class: 'trip-total num', text: eur(t.totalCents) }),
+    h('span', { class: 'trip-meta' }, meta, t.receiptCents != null ? diffSpan(t) : null));
+    const li = h('li', { class: 'trip' }, head);
+    if (open) {
+      const body = h('div', { class: 'trip-body' }, h('ul', { class: 'lines' }, t.items.map(staticLine)));
+      if (t.cardCents) body.append(h('p', { class: 'fine', text: 'Foi para o cartão: ' + eur(t.cardCents) + '.' }));
+      const r = readStats([t]);
+      if (r.reads) body.append(h('p', { class: 'fine', text: 'Leitura automática: ' + r.right + ' de ' + r.reads + ' certas à primeira.' }));
+      if (t.photosPurged) body.append(h('p', { class: 'fine', text: 'As fotos desta compra já foram apagadas.' }));
+      if (receiptEditing.has(t.id)) body.append(receiptForm(t));
+      const del = h('button', { type: 'button', class: 'linklike danger', id: 'del-' + t.id, onclick: () => deleteTrip(t.id) }, armed.has(t.id) ? 'Toque outra vez para apagar' : 'Apagar esta compra');
+      body.append(h('div', { class: 'trip-actions' },
+        receiptEditing.has(t.id) ? null : h('button', { type: 'button', class: 'linklike', onclick: () => { receiptEditing.add(t.id); pendingFocus = 'rc-' + t.id; renderHistory(); } }, t.receiptCents != null ? 'Corrigir talão' : 'Escrever valor do talão'),
+        h('button', { type: 'button', class: 'linklike', onclick: () => repeatTrip(t.id) }, 'Pôr na lista outra vez'),
+        del));
+      li.append(body);
+    }
+    return li;
+  }
+  function renderSpend() {
+    const trips = state.trips;
+    const now = new Date();
+    const nowKey = now.getFullYear() * 12 + now.getMonth();
+    const byMonth = new Map();
+    const count = (ts, spent, saved) => {
+      const d = new Date(ts);
+      const k = d.getFullYear() * 12 + d.getMonth();
+      const m = byMonth.get(k) || { spent: 0, n: 0, saved: 0 };
+      m.spent += spent;
+      m.n += 1;
+      m.saved += saved || 0;
+      byMonth.set(k, m);
+    };
+    for (const t of trips) count(t.ts, t.receiptCents != null ? t.receiptCents : t.totalCents, t.savedCents);
+    for (const a of state.archive.trips) count(a.ts, a.r != null ? a.r : a.t, a.v);
+    const cur = byMonth.get(nowKey) || { spent: 0, n: 0, saved: 0 };
+    $('spend-month').textContent = eur(cur.spent);
+    const parts = [];
+    if (cur.n) { parts.push('em ' + plural(cur.n, 'compra', 'compras')); parts.push('média ' + eur(Math.round(cur.spent / cur.n))); }
+    if (cur.saved) parts.push('poupou ' + eur(cur.saved) + ' em promoções');
+    $('spend-sub').textContent = parts.length ? parts.join(' · ') : 'Ainda sem compras este mês.';
+    const keys = [];
+    for (let i = 5; i >= 0; i--) keys.push(nowKey - i);
+    const max = Math.max(1, ...keys.map((k) => (byMonth.get(k) ? byMonth.get(k).spent : 0)));
+    $('months').replaceChildren(...keys.map((k) => {
+      const v = byMonth.get(k) ? byMonth.get(k).spent : 0;
+      const y = Math.floor(k / 12);
+      const label = MONTHS[k % 12] + (y !== now.getFullYear() ? ' ' + String(y).slice(2) : '');
+      return h('li', { class: k === nowKey ? 'now' : null },
+        h('span', { class: 'm-lbl', text: label }),
+        h('span', { class: 'm-bar', 'aria-hidden': 'true' }, h('i', { style: 'width:' + (v ? Math.max(2, Math.round(v / max * 100)) : 0) + '%' })),
+        h('span', { class: 'm-val num', text: v ? eur(v) : '—' }));
+    }));
+    $('spend').hidden = trips.length + state.archive.trips.length === 0;
+  }
+  function renderHistory() {
+    const trips = state.trips;
+    const old = state.archive.trips.length;
+    renderSpend();
+    const rs = readStats(trips);
+    const withReceipt = trips.filter((t) => t.receiptCents != null);
+    const avg = withReceipt.length ? Math.round(withReceipt.reduce((s, t) => s + Math.abs(t.receiptCents - t.totalCents), 0) / withReceipt.length) : null;
+    $('stat-trips').textContent = String(trips.length + old);
+    $('stat-reads').textContent = rs.reads ? rs.right + ' de ' + rs.reads : '—';
+    $('stat-diff').textContent = avg == null ? '—' : eur(avg);
+    $('trips').replaceChildren(...trips.map(tripCard));
+    $('trips').hidden = trips.length === 0;
+    $('trips-empty').hidden = trips.length + old > 0;
+    $('trips-note').hidden = trips.length === 0;
+    $('archive-note').hidden = !old;
+    $('archive-note').textContent = old === 1
+      ? 'Mais 1 compra antiga guardada em resumo: conta nos totais e nos preços, mas já sem a lista de produtos.'
+      : old ? 'Mais ' + old + ' compras antigas guardadas em resumo: contam nos totais e nos preços, mas já sem a lista de produtos.' : '';
+    $('btn-export').hidden = !(downloadsNs || !IN_CLAUDE) || trips.length + old === 0;
+    if (pendingFocus) { const el = $(pendingFocus); pendingFocus = null; if (el) el.focus(); }
+  }
+
+  /* ---------- Price book view ---------- */
+  const openProducts = new Set();
+  function bookRow(p) {
+    const open = openProducts.has(p.key);
+    const last = p.last;
+    const unit = last.mode === 'kg' ? '/kg' : '';
+    let trend = null;
+    if (p.prev) {
+      const d = last.priceCents - p.prev.priceCents;
+      trend = d > 0 ? { cls: 'prod-trend warn', text: '↑ ' + eur(d) } : d < 0 ? { cls: 'prod-trend ok', text: '↓ ' + eur(-d) } : { cls: 'prod-trend', text: '= igual' };
+    }
+    let meta = (last.store || 'Sem loja') + ' · ' + shortDate(last.ts);
+    if (p.min && p.min.priceCents < last.priceCents) meta += ' · mín. ' + eur(p.min.priceCents) + (p.min.store ? ' (' + p.min.store + ')' : '');
+    const head = h('button', { type: 'button', class: 'prod-head', 'aria-expanded': String(open), onclick: () => { if (openProducts.has(p.key)) openProducts.delete(p.key); else openProducts.add(p.key); renderBook(); } },
+      h('span', { class: 'prod-name', text: p.name }),
+      h('span', { class: 'prod-price num', text: eur(last.priceCents) + unit }),
+      h('span', { class: 'prod-meta', text: meta }),
+      trend ? h('span', { class: trend.cls, text: trend.text }) : null);
+    const li = h('li', { class: 'prod' }, head);
+    if (open) {
+      li.append(h('div', { class: 'prod-body' },
+        h('ul', { class: 'pe-list' }, p.entries.slice(0, 15).map((e) => h('li', { class: 'pe' },
+          h('span', { text: shortDate(e.ts) + ' · ' + (e.store || 'sem loja') }),
+          h('span', { class: 'num', text: eur(e.priceCents) + (e.mode === 'kg' ? '/kg' : '') })))),
+        h('div', { class: 'prod-actions' },
+          h('button', { type: 'button', class: 'btn secondary', onclick: () => addNameToList(p.name) }, 'Pôr na lista'),
+          h('button', { type: 'button', class: 'btn primary', onclick: () => openSheet({ name: p.name }) }, 'Pôr no carrinho'))));
+    }
+    return li;
+  }
+  function renderBook() {
+    const list = getBook().list;
+    const q = $('f-search').value.trim();
+    const fq = fold(q);
+    const qt = tokens(q);
+    const shown = q ? list.filter((p) => p.key.includes(fq) || (qt.length && qt.every((w) => p.toks.some((t) => t.startsWith(w))))) : list;
+    $('book-list').replaceChildren(...shown.slice(0, 300).map(bookRow));
+    $('book-list').hidden = shown.length === 0;
+    $('book-empty').hidden = list.length > 0;
+    $('search-box').hidden = list.length === 0;
+    $('book-count').hidden = list.length === 0;
+    $('book-count').textContent = q ? plural(shown.length, 'produto encontrado', 'produtos encontrados') : plural(list.length, 'produto com preço guardado', 'produtos com preço guardado');
+  }
+
+  /* ---------- Rendering ---------- */
+  function cartLine(it) {
+    const name = it.name || 'Produto sem nome';
+    const c = promoCalc(it);
+    const badge = promoBadge(it);
+    const main = h('button', { type: 'button', class: 'line-main', 'aria-label': 'Editar ' + name, onclick: () => openSheet({ editId: it.id }) },
+      it.thumb ? h('img', { class: 'thumb', src: it.thumb, alt: '' }) : h('span', { class: 'thumb ph', 'aria-hidden': 'true', text: initial(it.name) }),
+      h('span', { class: 'line-text' },
+        h('span', { class: 'line-name', text: name }),
+        h('span', { class: 'line-calc num' }, badge ? h('span', { class: 'badge', text: badge }) : null, calcText(it))));
+    const right = h('div', { class: 'line-right' }, h('span', { class: 'line-total num', text: eur(c.pay) }));
+    if (c.saved > 0) right.append(h('span', { class: 'line-saved', text: 'poupa ' + eur(c.saved) }));
+    else if (c.card > 0) right.append(h('span', { class: 'line-saved card', text: '+' + eur(c.card) + ' cartão' }));
+    if (it.mode === 'un') {
+      right.append(h('div', { class: 'stepper' },
+        h('button', { type: 'button', class: 'st-btn', 'data-focus-key': it.id + ':minus', 'aria-label': it.qty > 1 ? 'Menos um ' + name : 'Remover ' + name, onclick: () => changeQty(it.id, -1) }, it.qty > 1 ? '−' : svg(TRASH)),
+        h('span', { class: 'st-val num', text: String(it.qty) }),
+        h('button', { type: 'button', class: 'st-btn', 'data-focus-key': it.id + ':plus', 'aria-label': 'Mais um ' + name, onclick: () => changeQty(it.id, 1) }, '+')));
+    }
+    return h('li', { class: 'line' }, main, right);
+  }
+  function renderCart(s) {
+    $('cart-list').replaceChildren(...state.cart.map(cartLine));
+    const empty = state.cart.length === 0;
+    $('cart-empty').hidden = !empty;
+    $('cart-foot').hidden = empty;
+    $('receipt-head').hidden = empty;
+    $('foot-total').textContent = eur(s.pay);
+    $('foot-saved').hidden = !s.saved;
+    $('foot-saved').replaceChildren(h('span', { text: 'Poupança em promoções' }), h('span', { class: 'num', text: eur(s.saved) }));
+    $('foot-card').hidden = !s.card;
+    $('foot-card').replaceChildren(h('span', { text: 'Vai para o cartão' }), h('span', { class: 'num', text: eur(s.card) }));
+  }
+  function renderList() {
+    let pendingCount = 0;
+    let known = 0;
+    let sum = 0;
+    const items = state.list.map((li) => {
+      const inCart = li.cartItemId ? state.cart.find((x) => x.id === li.cartItemId) : null;
+      let meta;
+      if (inCart) meta = 'no carrinho · ' + eur(lineCents(inCart));
+      else if (li.done) meta = 'comprado';
+      else {
+        pendingCount++;
+        const est = estimateFor(li.name);
+        if (est != null) { known++; sum += est; meta = 'pôr no carrinho · ~' + eur(est); } else meta = 'pôr no carrinho';
+      }
+      return h('li', { class: 'li' + (li.done ? ' done' : '') },
+        h('button', { type: 'button', class: 'check', role: 'checkbox', 'aria-checked': String(li.done), 'aria-label': li.name, 'data-focus-key': li.id + ':check', onclick: () => toggleList(li.id) }, svg(CHECK)),
+        h('button', { type: 'button', class: 'li-name', onclick: () => addFromList(li.id) },
+          h('span', { class: 'li-title', text: li.name }),
+          h('span', { class: 'li-meta', text: meta })),
+        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Apagar ' + li.name, onclick: () => deleteListItem(li.id) }, '×'));
+    });
+    $('list-items').replaceChildren(...items);
+    $('list-items').hidden = items.length === 0;
+    $('list-empty').hidden = items.length > 0;
+    $('list-clear').hidden = !state.list.some((l) => l.done);
+    $('list-tools').hidden = pendingCount === 0;
+    $('list-est').textContent = known ? 'Estimativa: ~' + eur(sum) + (known < pendingCount ? ' (' + known + ' de ' + pendingCount + ' com preço)' : '') : plural(pendingCount, 'item por comprar', 'itens por comprar');
+    if (!pendingCount) $('copy-area').hidden = true;
+    const seen = new Set();
+    $('book-names').replaceChildren(...getBook().list.filter((p) => !seen.has(p.key) && seen.add(p.key)).slice(0, 80).map((p) => h('option', { value: p.name })));
+  }
+  // Only the tab on screen is drawn; the others are drawn when they are opened (setTab).
+  function renderView(t, s) {
+    if (t === 'carrinho') { const c = s || sums(state.cart); renderCart(c); renderBudget(c.pay); }
+    else if (t === 'lista') renderList();
+    else if (t === 'precos') renderBook();
+    else if (t === 'historico') renderHistory();
+  }
+  function render() {
+    bookCache = null;
+    const active = document.activeElement;
+    const key = active && active.dataset ? active.dataset.focusKey : null;
+    const s = sums(state.cart);
+    renderView(tab, s);
+    const n = unitsOf(state.cart);
+    $('total').textContent = eur(s.pay);
+    $('total-meta').textContent = plural(n, 'artigo', 'artigos') + (s.saved ? ' · poupa ' + eur(s.saved) : '');
+    $('cnt-cart').textContent = String(n);
+    $('cnt-list').textContent = String(state.list.filter((l) => !l.done).length);
+    if (key) {
+      const sel = window.CSS && typeof CSS.escape === 'function' ? CSS.escape(key) : key.replace(/[^\w:-]/g, '');
+      const el = document.querySelector('[data-focus-key="' + sel + '"]');
+      if (el) el.focus({ preventScroll: true });
+    }
+  }
+
+  /* ---------- Export ---------- */
+  let downloadsNs = null;
+  function csvCell(v) {
+    let s = String(v == null ? '' : v);
+    // A cell starting with = + - @ would run as a formula in Excel: written as plain text instead.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  const dec2 = (c) => (c / 100).toFixed(2).replace('.', ',');
+  function buildCsv() {
+    const rows = [['Data', 'Hora', 'Supermercado', 'Produto', 'Quantidade', 'Peso (kg)', 'Preço (€)', 'Preço por', 'Promoção', 'Total da linha (€)', 'Poupança (€)', 'Total da compra (€)', 'Talão (€)']];
+    const when = (ts) => {
+      const d = new Date(ts);
+      return [d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()), pad(d.getHours()) + ':' + pad(d.getMinutes())];
+    };
+    // Old purchases kept only as a summary: one line each, oldest first.
+    for (const a of state.archive.trips.slice().sort((x, y) => x.ts - y.ts)) {
+      const [date, time] = when(a.ts);
+      rows.push([date, time, a.s, '(compra antiga: só o total)', '', '', '', '', '', '', a.v ? dec2(a.v) : '', dec2(a.t), a.r != null ? dec2(a.r) : '']);
+    }
+    for (const t of state.trips.slice().reverse()) {
+      const [date, time] = when(t.ts);
+      for (const i of t.items) {
+        const c = promoCalc(i);
+        rows.push([date, time, t.store, i.name, i.mode === 'un' ? i.qty : '', i.mode === 'kg' ? (i.weightG / 1000).toFixed(3).replace('.', ',') : '',
+          dec2(i.priceCents), i.mode === 'kg' ? 'kg' : 'unidade', promoBadge(i) || '', dec2(c.pay), c.saved ? dec2(c.saved) : '',
+          dec2(t.totalCents), t.receiptCents != null ? dec2(t.receiptCents) : '']);
+      }
+    }
+    return '\uFEFF' + rows.map((r) => r.map(csvCell).join(';')).join('\r\n');
+  }
+  async function exportCsv() {
+    const d = new Date();
+    if (!downloadsNs) {
+      if (IN_CLAUDE) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buildCsv()], { type: 'text/csv;charset=utf-8' }));
+      a.download = 'compras-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv';
+      document.body.append(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 30000);
+      return;
+    }
+    try {
+      await downloadsNs.save({ filename: 'compras-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv', data: buildCsv() });
+      showToast('Ficheiro pronto.');
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'declined') return;
+      if (['unavailable', 'not_granted', 'capability_disabled', 'capability_removed', 'extension_not_enabled'].includes(code)) {
+        downloadsNs = null;
+        $('btn-export').hidden = true;
+        showToast('Exportar não está disponível aqui.');
+        return;
+      }
+      showToast(code === 'rate_limited' ? 'Espere um pouco e tente outra vez.' : 'Não foi possível exportar.');
+    }
+  }
+
+  /* ---------- Tabs, bar, toast ---------- */
+  let tab = 'carrinho';
+  function updateBarHeight() {
+    const bar = $('bar');
+    document.body.style.setProperty('--bar-h', bar.hidden ? '0px' : bar.offsetHeight + 'px');
+  }
+  function setTab(t) {
+    if (!TABS.includes(t)) t = 'carrinho';
+    const changed = t !== tab;
+    tab = t;
+    document.body.dataset.tab = t;
+    for (const name of TABS) {
+      const b = $('tab-' + name);
+      b.setAttribute('aria-selected', String(name === t));
+      b.tabIndex = name === t ? 0 : -1;
+      $('view-' + name).hidden = name !== t;
+    }
+    $('bar').hidden = t === 'historico' || t === 'precos';
+    updateBarHeight();
+    try { localStorage.setItem(LS_TAB, t); } catch (e) { /* ignore */ }
+    if (changed) { renderView(t); window.scrollTo(0, 0); }
+  }
+  // As a popover, the message shows on top of an open sheet too (a plain element would stay behind it).
+  const toastEl = $('toast');
+  const TOAST_POP = typeof toastEl.showPopover === 'function';
+  if (TOAST_POP) { toastEl.setAttribute('popover', 'manual'); toastEl.hidden = false; }
+  let toastTimer = null;
+  let toastUndo = null;
+  function hideToast() {
+    if (TOAST_POP) { try { toastEl.hidePopover(); } catch (e) { /* already closed */ } } else toastEl.hidden = true;
+    toastUndo = null;
+  }
+  function showToast(msg, undoFn) {
+    $('toast-text').textContent = msg;
+    toastUndo = undoFn || null;
+    $('toast-undo').hidden = !undoFn;
+    if (TOAST_POP) {
+      // Shown again so it goes above whatever opened last.
+      try { if (toastEl.matches(':popover-open')) toastEl.hidePopover(); toastEl.showPopover(); } catch (e) { /* ignore */ }
+    } else toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, undoFn ? 6000 : 3200);
+  }
+
+  /* ---------- Wiring ---------- */
+  for (const name of TABS) $('tab-' + name).addEventListener('click', () => setTab(name));
+  $('tab-carrinho').parentElement.addEventListener('keydown', (e) => {
+    const i = TABS.indexOf(tab);
+    let next = null;
+    if (e.key === 'ArrowRight') next = TABS[(i + 1) % TABS.length];
+    else if (e.key === 'ArrowLeft') next = TABS[(i + TABS.length - 1) % TABS.length];
+    else if (e.key === 'Home') next = TABS[0];
+    else if (e.key === 'End') next = TABS[TABS.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    setTab(next);
+    $('tab-' + next).focus();
+  });
+  $('btn-photo').addEventListener('click', () => pickPhoto('in-camera'));
+  $('btn-gallery').addEventListener('click', () => pickPhoto('in-gallery'));
+  $('btn-manual').addEventListener('click', () => openSheet({ focusPrice: true }));
+  $('sheet-photo').addEventListener('click', () => pickPhoto('in-camera-s'));
+  $('sheet-gallery').addEventListener('click', () => pickPhoto('in-gallery-s'));
+  for (const id of ['in-camera', 'in-gallery', 'in-camera-s', 'in-gallery-s']) $(id).addEventListener('change', onFile);
+  $('sheet-close').addEventListener('click', requestCloseSheet);
+  // Escape or the phone's back gesture: ask first when there is something not saved.
+  $('sheet').addEventListener('cancel', (e) => { if (sheetDirty()) { e.preventDefault(); requestCloseSheet(); } });
+  $('sheet').addEventListener('close', () => { if (!$('sheet').open && sheet.open) { sheet.open = false; resetSheet(); } });
+  $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) requestCloseSheet(); });
+  $('discard-yes').addEventListener('click', closeSheet);
+  $('discard-keep').addEventListener('click', () => { $('discard').hidden = true; f.price.focus(); });
+  $('item-form').addEventListener('submit', onSave);
+  $('f-save').addEventListener('click', () => { sheet.chain = false; });
+  $('f-save-next').addEventListener('click', () => { sheet.chain = true; });
+  f.price.addEventListener('input', () => { sheet.touchedPrice = true; syncChips(); updateSubtotal(); updateHistNote(); });
+  f.name.addEventListener('input', updateHistNote);
+  f.kg.addEventListener('input', updateSubtotal);
+  f.qty.addEventListener('input', updateSubtotal);
+  $('q-minus').addEventListener('click', () => { f.qty.value = String(Math.max(1, (parseInt(f.qty.value, 10) || 1) - 1)); updateSubtotal(); });
+  $('q-plus').addEventListener('click', () => { f.qty.value = String(Math.min(999, (parseInt(f.qty.value, 10) || 0) + 1)); updateSubtotal(); });
+  $('mode-un').addEventListener('click', () => setItemMode('un'));
+  $('mode-kg').addEventListener('click', () => { setItemMode('kg'); if (!f.kg.value) f.kg.focus(); });
+  $('promo-toggle').addEventListener('click', () => openPromo($('promo-panel').hidden));
+  for (const b of $('promo-kinds').querySelectorAll('.chip')) {
+    b.addEventListener('click', () => { sheet.touchedPromo = true; setPromoKind(b.dataset.kind); });
+  }
+  for (const id of ['f-px', 'f-py', 'f-ppct']) $(id).addEventListener('input', () => { sheet.touchedPromo = true; updateSubtotal(); });
+  f.remove.addEventListener('click', () => { const id = sheet.editId; closeSheet(); if (id) removeItem(id); });
+  $('btn-finish').addEventListener('click', openFinish);
+  $('finish-form').addEventListener('submit', onFinish);
+  $('fin-cancel').addEventListener('click', () => closeDialog($('finish')));
+  $('fin-close').addEventListener('click', () => closeDialog($('finish')));
+  $('finish').addEventListener('click', (e) => { if (e.target === $('finish')) closeDialog($('finish')); });
+  $('fin-receipt').addEventListener('input', updateFinDiff);
+  $('list-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $('f-listitem');
+    const r = addListItems(input.value);
+    if (r.added) { input.value = ''; input.focus(); }
+    if (r.full) showToast(LIST_FULL);
+    else if (r.given && !r.added) { showToast(r.given === 1 ? 'Já está na lista.' : 'Já estão todos na lista.'); input.select(); }
+  });
+  $('list-clear').addEventListener('click', clearDoneList);
+  $('list-copy').addEventListener('click', copyList);
+  $('f-search').addEventListener('input', renderBook);
+  $('btn-export').addEventListener('click', exportCsv);
+  $('budget-edit').addEventListener('click', openBudget);
+  $('budget-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = parseCents($('f-budget').value);
+    if (c != null && c > MAX_MONEY) { $('f-budget').focus(); showToast('Esse orçamento parece alto demais. Confirme o valor.'); return; }
+    state.budgetCents = c != null && c > 0 ? c : null;
+    closeBudget();
+    commit();
+  });
+  $('budget-clear').addEventListener('click', () => { state.budgetCents = null; closeBudget(); commit(); });
+  $('sync').addEventListener('click', () => showToast(SYNC_HELP[syncKind] || SYNC_HELP.local));
+  $('toast-undo').addEventListener('click', () => { const fn = toastUndo; hideToast(); if (fn) fn(); });
+  $('nocam-url').value = APP_URL;
+  $('nocam-copy').addEventListener('click', copyAppLink);
+  $('nocam-close').addEventListener('click', hideNoCamera);
+  $('nocam').addEventListener('click', (e) => { if (e.target === $('nocam')) hideNoCamera(); });
+  $('nocam-form').addEventListener('submit', (e) => e.preventDefault());
+  $('nocam-manual').addEventListener('click', () => {
+    hideNoCamera();
+    if (sheet.open) setTimeout(() => f.price.focus(), 60);
+    else openSheet({ focusPrice: true });
+  });
+  (() => {
+    const ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      for (const el of document.querySelectorAll('.nc-browser')) el.textContent = 'Safari';
+      $('nc-icon').replaceChildren('Para ter um ícone: no Safari, botão ', h('strong', { text: 'Partilhar' }), ' → ', h('strong', { text: 'Adicionar ao ecrã principal' }), '.');
+    }
+  })();
+  // Back online or back on the page: send what is still waiting straight away.
+  window.addEventListener('online', retryNow);
+  window.addEventListener('offline', () => { if (cloud.on && cloud.ready) showSyncState(pendingOps().length > 0); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { noteActivity(); if (cloud.failing) retryNow(); } else saveLocalNow();
+  });
+  window.addEventListener('pagehide', saveLocalNow);
+  document.addEventListener('pointerdown', noteActivity, { passive: true });
+  document.addEventListener('keydown', noteActivity);
+  if ('ResizeObserver' in window) new ResizeObserver(updateBarHeight).observe($('bar'));
+  window.addEventListener('resize', updateBarHeight);
+
+  /* ---------- Start ---------- */
+  applyData(loadLocal());
+  if (purgeOldPhotos()) saveLocal();
+  let savedTab = null;
+  try { savedTab = localStorage.getItem(LS_TAB); } catch (e) { /* ignore */ }
+  setSync('local');
+  render();
+  setTab(savedTab || 'carrinho');
+  noteActivity();
+  initCloud();
+  (async () => {
+    const C = window.claude;
+    if (!C || typeof C.use !== 'function') return;
+    try { downloadsNs = await C.use('downloads'); } catch (e) { downloadsNs = null; }
+    if (tab === 'historico') renderHistory();
+  })();
+  // For the automatic tests only: present when a test page defines window.__scannerTest beforehand.
+  if (window.__scannerTest && typeof window.__scannerTest === 'object') {
+    window.__scannerTest.api = {
+      state, cloud, commit, render, setTab, flush, pendingOps, fp, parseCents, parseGrams, normNum, promoCalc, csvCell, buildCsv,
+      cleanText, cleanItem, cleanTrip, cleanArchive, trimArchive, unionArchive, archiveOverflow, parseTagOcr, matchProduct, estimateFor,
+      addListItems, removeItem, deleteTrip, onFinish: () => onFinish({ preventDefault() {} }), openSheet, closeSheet, requestCloseSheet, sheetDirty,
+      sheet, f, changeQty, toggleList, deleteListItem, saveLocal, getBook, startReading,
+    };
+  }
+})();
+</script>
+</body>
+</html>
